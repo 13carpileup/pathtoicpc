@@ -52,8 +52,10 @@ func handleMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func testApi(w http.ResponseWriter, r *http.Request) {
+	params := []Param{Param{key: "hu", value: "ho"}}
+
 	writeJSON(w, http.StatusOK, messageResponse{
-		Message: getSig("hello"),
+		Message: getSig("hello", params),
 	})
 }
 
