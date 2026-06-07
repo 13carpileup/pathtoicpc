@@ -22,6 +22,9 @@ func main() {
 	mux.HandleFunc("GET /api/health", handleHealth)
 	mux.HandleFunc("GET /api/message", handleMessage)
 	mux.HandleFunc("GET /api/cf", testApi)
+	mux.HandleFunc("GET /api/user.info", getUserInfo)
+	mux.HandleFunc("GET /api/user.status", getUserStatus)
+	mux.HandleFunc("GET /api/problemset.problems", getProblemsetProblems)
 
 	addr := ":" + getEnv("PORT", "8080")
 	server := &http.Server{
