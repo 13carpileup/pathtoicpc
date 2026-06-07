@@ -21,6 +21,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", handleHealth)
 	mux.HandleFunc("GET /api/message", handleMessage)
+	mux.HandleFunc("GET /api/cf", testApi)
 
 	addr := ":" + getEnv("PORT", "8080")
 	server := &http.Server{
@@ -47,6 +48,12 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 func handleMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, messageResponse{
 		Message: "Hello from the Go backend.",
+	})
+}
+
+func testApi(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, messageResponse{
+		Message: getSig("hello"),
 	})
 }
 
