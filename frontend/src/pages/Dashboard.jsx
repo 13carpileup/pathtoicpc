@@ -1,6 +1,6 @@
 const stats = [
-  { label: "Routes", value: "3" },
-  { label: "API endpoints", value: "2" },
+  { label: "Routes", value: "4" },
+  { label: "API endpoints", value: "8" },
   { label: "Stack", value: "Go + React" }
 ];
 

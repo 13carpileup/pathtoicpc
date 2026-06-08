@@ -106,7 +106,9 @@ h1 {
 }
 
 .status-panel,
-.stat-card {
+.stat-card,
+.auth-panel,
+.account-summary {
   border: 1px solid #dde2ea;
   border-radius: 8px;
   background: #ffffff;
@@ -145,6 +147,105 @@ h1 {
   gap: 0.4rem;
   min-height: 110px;
   padding: 1rem;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.auth-panel h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.25rem;
+}
+
+.auth-panel label {
+  display: grid;
+  gap: 0.35rem;
+  color: #374151;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.auth-panel input {
+  width: 100%;
+  border: 1px solid #cfd6e3;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+}
+
+.auth-panel input:focus {
+  border-color: #1f7a5a;
+  box-shadow: 0 0 0 3px rgb(31 122 90 / 0.14);
+  outline: none;
+}
+
+.auth-panel button,
+.account-summary button {
+  width: fit-content;
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: #174ea6;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.65rem 0.9rem;
+}
+
+.auth-panel button:disabled,
+.account-summary button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.form-status {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  border: 1px solid #bfd8ca;
+  border-radius: 6px;
+  background: #f0faf5;
+  color: #15523d;
+  padding: 0.65rem 0.8rem;
+}
+
+.account-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: end;
+  max-width: 720px;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.account-summary div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.account-summary span {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.account-summary strong {
+  color: #111827;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {

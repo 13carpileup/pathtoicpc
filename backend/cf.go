@@ -33,6 +33,10 @@ func getProblemsetProblems(w http.ResponseWriter, r *http.Request) {
 	proxyCodeforces(w, r, "problemset.problems")
 }
 
+func getRecommendedProblem(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func proxyCodeforces(w http.ResponseWriter, r *http.Request, method string, requiredParams ...string) {
 	query := cleanQuery(r.URL.Query())
 	if err := requireQueryParams(query, requiredParams...); err != nil {

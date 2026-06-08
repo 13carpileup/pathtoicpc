@@ -26,9 +26,27 @@ Available endpoints:
 
 - `GET /api/health`
 - `GET /api/message`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
 - `GET /api/user.info?handles=tourist`
 - `GET /api/user.status?handle=tourist`
 - `GET /api/problemset.problems`
+
+Account endpoints use MySQL. Configure either a full DSN:
+
+```bash
+MYSQL_DSN='user:password@tcp(127.0.0.1:3306)/pathtoicpc?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci' go run .
+```
+
+or individual values:
+
+```bash
+DB_NAME=pathtoicpc DB_USER=root DB_PASSWORD=password go run .
+```
+
+The backend creates the `users` and `user_sessions` tables on startup when MySQL is configured.
 
 Set a custom port with:
 
@@ -49,5 +67,6 @@ The frontend runs on `http://localhost:5173` by default. During development, Vit
 Routes:
 
 - `/`
+- `/account`
 - `/about`
 - `/dashboard`
