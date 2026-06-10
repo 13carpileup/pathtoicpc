@@ -1,4 +1,4 @@
-package backend
+package cf
 
 import (
 	"encoding/json"
@@ -17,13 +17,13 @@ func TestCodeforcesHandlersRequireParams(t *testing.T) {
 		{
 			name:    "user info requires handles",
 			path:    "/api/user.info",
-			handler: getUserInfo,
+			handler: GetUserInfo,
 			wantErr: `missing required query parameter "handles"`,
 		},
 		{
 			name:    "user status requires handle",
 			path:    "/api/user.status",
-			handler: getUserStatus,
+			handler: GetUserStatus,
 			wantErr: `missing required query parameter "handle"`,
 		},
 	}

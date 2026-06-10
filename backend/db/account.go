@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/mail"
 	"regexp"
@@ -20,6 +19,8 @@ import (
 
 	mysql "github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/bcrypt"
+
+	cfjson "pathtoicpc/backend/json"
 )
 
 const maxJSONBodySize = 1 << 20
@@ -29,7 +30,6 @@ var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 type authService struct {
 	db              *sql.DB
 	sessionDuration time.Duration
-	problemFetcher  ProblemFetcher
 }
 
 type ProblemFetcher func(context.Context) ([]Problem, error)
@@ -84,158 +84,11 @@ type messageResponse struct {
 	Message string `json:"message"`
 }
 
-func NewAuthService(db *sql.DB, problemFetchers ...ProblemFetcher) *authService {
-	var problemFetcher ProblemFetcher
-	if len(problemFetchers) > 0 {
-		problemFetcher = problemFetchers[0]
-	}
-
+func NewAuthService(db *sql.DB) *authService {
 	return &authService{
 		db:              db,
 		sessionDuration: 7 * 24 * time.Hour,
-		problemFetcher:  problemFetcher,
 	}
-}
-
-func (s *authService) InitializeSchema(ctx context.Context) error {
-	if s == nil || s.db == nil {
-		return nil
-	}
-
-	type statement struct {
-		query string
-		args  []any
-	}
-
-	statements := []statement{
-		{query: `CREATE TABLE IF NOT EXISTS users (
-			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			email VARCHAR(255) NOT NULL,
-			username VARCHAR(64) NOT NULL,
-			password_hash VARCHAR(255) NOT NULL,
-			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (id),
-			UNIQUE KEY users_email_unique (email),
-			UNIQUE KEY users_username_unique (username)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
-		{query: `CREATE TABLE IF NOT EXISTS user_sessions (
-			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			user_id BIGINT UNSIGNED NOT NULL,
-			token_hash CHAR(64) NOT NULL,
-			expires_at DATETIME NOT NULL,
-			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (id),
-			UNIQUE KEY user_sessions_token_hash_unique (token_hash),
-			KEY user_sessions_user_id_index (user_id),
-			KEY user_sessions_expires_at_index (expires_at),
-			CONSTRAINT user_sessions_user_id_foreign
-				FOREIGN KEY (user_id) REFERENCES users(id)
-				ON DELETE CASCADE
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
-		{query: `CREATE TABLE IF NOT EXISTS problems (
-			id VARCHAR(255) NOT NULL PRIMARY KEY,
-			contest BIGINT UNSIGNED NOT NULL,
-			` + "`index`" + ` VARCHAR(16) NOT NULL,
-			rating BIGINT UNSIGNED,
-			tags JSON NOT NULL DEFAULT (JSON_ARRAY())
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
-		{query: `CREATE TABLE IF NOT EXISTS submissions (
-			submission_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-			user_id BIGINT NOT NULL,
-			problem_id VARCHAR(255) NOT NULL,
-			solved BOOLEAN NOT NULL,
-			status VARCHAR(255),
-			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
-		{query: `CREATE TABLE IF NOT EXISTS problem_status (
-			problem_id VARCHAR(255) NOT NULL PRIMARY KEY,
-			user_id BIGINT NOT NULL,
-			solved BOOLEAN NOT NULL,
-			tracked BOOLEAN NOT NULL,
-			seconds_taken BIGINT
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
-	}
-
-	if s.problemFetcher == nil {
-		for _, statement := range statements {
-			if _, err := s.db.ExecContext(ctx, statement.query, statement.args...); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}
-
-	problems, err := s.problemFetcher(ctx)
-
-	if err != nil {
-		return err
-	}
-
-	for _, problem := range problems {
-		tags, err := json.Marshal(problem.Tags)
-		if err != nil {
-			return fmt.Errorf("encode tags for problem %s: %w", problem.ID, err)
-		}
-
-		statements = append(statements, statement{
-			query: `INSERT INTO problems (id, contest, ` + "`index`" + `, rating, tags) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contest=contest`,
-			args:  []any{problem.ID, problem.ContestID, problem.Index, problem.Rating, string(tags)},
-		})
-	}
-
-	for _, statement := range statements {
-		if _, err := s.db.ExecContext(ctx, statement.query, statement.args...); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (s *authService) ProblemsByRating(ctx context.Context, rating int) ([]Problem, error) {
-	if s == nil || s.db == nil {
-		return nil, errors.New("mysql database is not configured")
-	}
-	if rating < 0 {
-		return nil, errors.New("rating must be non-negative")
-	}
-
-	rows, err := s.db.QueryContext(
-		ctx,
-		`SELECT id, contest, `+"`index`"+`, rating, tags
-		FROM problems
-		WHERE rating = ?
-		ORDER BY contest, `+"`index`",
-		rating,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var problems []Problem
-	for rows.Next() {
-		var problem Problem
-		var tagsJSON []byte
-
-		if err := rows.Scan(&problem.ID, &problem.ContestID, &problem.Index, &problem.Rating, &tagsJSON); err != nil {
-			return nil, err
-		}
-
-		if len(tagsJSON) > 0 {
-			if err := json.Unmarshal(tagsJSON, &problem.Tags); err != nil {
-				return nil, fmt.Errorf("decode tags for problem %s: %w", problem.ID, err)
-			}
-		}
-
-		problems = append(problems, problem)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return problems, nil
 }
 
 func (s *authService) HandleRegister(w http.ResponseWriter, r *http.Request) {
@@ -250,13 +103,13 @@ func (s *authService) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	email, username, err := normalizeRegistration(req)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		cfjson.WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to secure password"})
+		cfjson.WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to secure password"})
 		return
 	}
 
@@ -269,33 +122,33 @@ func (s *authService) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		if isDuplicateEntry(err) {
-			writeJSON(w, http.StatusConflict, errorResponse{Error: "email or username is already registered"})
+			cfjson.WriteJSON(w, http.StatusConflict, errorResponse{Error: "email or username is already registered"})
 			return
 		}
 
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create account"})
+		cfjson.WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create account"})
 		return
 	}
 
 	userID, err := result.LastInsertId()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load account"})
+		cfjson.WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load account"})
 		return
 	}
 
 	user, err := s.getUserByID(r.Context(), userID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load account"})
+		cfjson.WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load account"})
 		return
 	}
 
 	token, expiresAt, err := s.createSession(r.Context(), user.ID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to start session"})
+		cfjson.WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to start session"})
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, authResponse{
+	cfjson.WriteJSON(w, http.StatusCreated, authResponse{
 		User:      toUserResponse(user),
 		Token:     token,
 		ExpiresAt: expiresAt,
@@ -314,33 +167,33 @@ func (s *authService) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	identifier := normalizeLoginIdentifier(req)
 	if identifier == "" || req.Password == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "identifier and password are required"})
+		cfjson.WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "identifier and password are required"})
 		return
 	}
 
 	user, err := s.getUserByIdentifier(r.Context(), identifier)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid credentials"})
+			cfjson.WriteJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid credentials"})
 			return
 		}
 
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load account"})
+		cfjson.WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load account"})
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid credentials"})
+		cfjson.WriteJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid credentials"})
 		return
 	}
 
 	token, expiresAt, err := s.createSession(r.Context(), user.ID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to start session"})
+		cfjson.WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to start session"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, authResponse{
+	cfjson.WriteJSON(w, http.StatusOK, authResponse{
 		User:      toUserResponse(user),
 		Token:     token,
 		ExpiresAt: expiresAt,
@@ -354,11 +207,11 @@ func (s *authService) HandleMe(w http.ResponseWriter, r *http.Request) {
 
 	user, err := s.userFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "authentication required"})
+		cfjson.WriteJSON(w, http.StatusUnauthorized, errorResponse{Error: "authentication required"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toUserResponse(user))
+	cfjson.WriteJSON(w, http.StatusOK, toUserResponse(user))
 }
 
 func (s *authService) HandleLogout(w http.ResponseWriter, r *http.Request) {
@@ -368,7 +221,7 @@ func (s *authService) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 	token, err := bearerToken(r)
 	if err != nil {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "authentication required"})
+		cfjson.WriteJSON(w, http.StatusUnauthorized, errorResponse{Error: "authentication required"})
 		return
 	}
 
@@ -377,11 +230,11 @@ func (s *authService) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		`DELETE FROM user_sessions WHERE token_hash = ?`,
 		hashSessionToken(token),
 	); err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to end session"})
+		cfjson.WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to end session"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, messageResponse{Message: "Logged out."})
+	cfjson.WriteJSON(w, http.StatusOK, messageResponse{Message: "Logged out."})
 }
 
 func (s *authService) ensureEnabled(w http.ResponseWriter) bool {
@@ -389,7 +242,7 @@ func (s *authService) ensureEnabled(w http.ResponseWriter) bool {
 		return true
 	}
 
-	writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "mysql database is not configured"})
+	cfjson.WriteJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "mysql database is not configured"})
 	return false
 }
 
@@ -509,25 +362,16 @@ func decodeJSONRequest(w http.ResponseWriter, r *http.Request, dst any) bool {
 	decoder.DisallowUnknownFields()
 
 	if err := decoder.Decode(dst); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request"})
+		cfjson.WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request"})
 		return false
 	}
 
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "request body must contain one JSON object"})
+		cfjson.WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "request body must contain one JSON object"})
 		return false
 	}
 
 	return true
-}
-
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Printf("failed to write response: %v", err)
-	}
 }
 
 func bearerToken(r *http.Request) (string, error) {

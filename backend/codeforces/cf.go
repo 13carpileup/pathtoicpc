@@ -1,4 +1,4 @@
-package backend
+package cf
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	cfjson "pathtoicpc/backend/json"
 )
 
 const codeforcesAPIBaseURL = "https://codeforces.com/api/"
@@ -23,17 +25,17 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
-type codeforcesAPIResponse[T any] struct {
+type CodeforcesAPIResponse[T any] struct {
 	Status  string `json:"status"`
 	Comment string `json:"comment,omitempty"`
 	Result  T      `json:"result"`
 }
 
-type codeforcesProblemListResult struct {
-	Problems []codeforcesProblem `json:"problems"`
+type CodeforcesProblemListResult struct {
+	Problems []CodeforcesProblem `json:"problems"`
 }
 
-type codeforcesProblem struct {
+type CodeforcesProblem struct {
 	ID             string
 	ContestID      int      `json:"contestId,omitempty"`
 	ProblemsetName string   `json:"problemsetName,omitempty"`
@@ -45,19 +47,19 @@ type codeforcesProblem struct {
 	Tags           []string `json:"tags"`
 }
 
-func getUserInfo(w http.ResponseWriter, r *http.Request) {
+func GetUserInfo(w http.ResponseWriter, r *http.Request) {
 	proxyCodeforces(w, r, "user.info", "handles")
 }
 
-func getUserStatus(w http.ResponseWriter, r *http.Request) {
+func GetUserStatus(w http.ResponseWriter, r *http.Request) {
 	proxyCodeforces(w, r, "user.status", "handle")
 }
 
-func getProblemsetProblems(w http.ResponseWriter, r *http.Request) {
+func GetProblemsetProblems(w http.ResponseWriter, r *http.Request) {
 	proxyCodeforces(w, r, "problemset.problems")
 }
 
-func GetProblemList(ctx context.Context) ([]codeforcesProblem, error) {
+func GetProblemList(ctx context.Context) ([]CodeforcesProblem, error) {
 	body, status, _, err := requestCodeforces(ctx, "problemset.problems", nil)
 	if err != nil {
 		return nil, err
@@ -67,7 +69,7 @@ func GetProblemList(ctx context.Context) ([]codeforcesProblem, error) {
 		return nil, fmt.Errorf("codeforces problemset.problems returned status %d", status)
 	}
 
-	var response codeforcesAPIResponse[codeforcesProblemListResult]
+	var response CodeforcesAPIResponse[CodeforcesProblemListResult]
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("decode codeforces problem list: %w", err)
 	}
@@ -96,14 +98,14 @@ func getRecommendedProblem(w http.ResponseWriter, r *http.Request) {
 func proxyCodeforces(w http.ResponseWriter, r *http.Request, method string, requiredParams ...string) {
 	query := cleanQuery(r.URL.Query())
 	if err := requireQueryParams(query, requiredParams...); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		cfjson.WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 
 	body, status, contentType, err := requestCodeforces(r.Context(), method, query)
 	if err != nil {
 		log.Printf("codeforces %s request failed: %v", method, err)
-		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to call Codeforces API"})
+		cfjson.WriteJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to call Codeforces API"})
 		return
 	}
 

@@ -3,12 +3,12 @@ package backend
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
+	cf "pathtoicpc/backend/codeforces"
 	"pathtoicpc/backend/db"
+	cfjson "pathtoicpc/backend/json"
 )
 
 type healthResponse struct {
@@ -21,7 +21,7 @@ type messageResponse struct {
 }
 
 func InitializeSchema(ctx context.Context, dbs *sql.DB) error {
-	return db.NewAuthService(dbs, fetchCodeforcesProblems).InitializeSchema(ctx)
+	return db.NewAuthService(dbs).InitializeSchema(ctx)
 }
 
 func NewHandler(dbs *sql.DB) http.Handler {
@@ -35,14 +35,14 @@ func NewHandler(dbs *sql.DB) http.Handler {
 	mux.HandleFunc("GET /api/auth/me", auth.HandleMe)
 	mux.HandleFunc("POST /api/auth/logout", auth.HandleLogout)
 	mux.HandleFunc("GET /api/cf", testAPI)
-	mux.HandleFunc("GET /api/user.info", getUserInfo)
-	mux.HandleFunc("GET /api/user.status", getUserStatus)
-	mux.HandleFunc("GET /api/problemset.problems", getProblemsetProblems)
+	mux.HandleFunc("GET /api/user.info", cf.GetUserInfo)
+	mux.HandleFunc("GET /api/user.status", cf.GetUserStatus)
+	mux.HandleFunc("GET /api/problemset.problems", cf.GetProblemsetProblems)
 
 	return withCORS(mux)
 }
 
-func ProblemsByRating(ctx context.Context, dbs *sql.DB, rating int) ([]codeforcesProblem, error) {
+func ProblemsByRating(ctx context.Context, dbs *sql.DB, rating int) ([]cf.CodeforcesProblem, error) {
 	problems, err := db.NewAuthService(dbs).ProblemsByRating(ctx, rating)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func ProblemsByRating(ctx context.Context, dbs *sql.DB, rating int) ([]codeforce
 }
 
 func fetchCodeforcesProblems(ctx context.Context) ([]db.Problem, error) {
-	problems, err := GetProblemList(ctx)
+	problems, err := cf.GetProblemList(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func fetchCodeforcesProblems(ctx context.Context) ([]db.Problem, error) {
 	return dbProblemsFromCodeforces(problems), nil
 }
 
-func dbProblemsFromCodeforces(problems []codeforcesProblem) []db.Problem {
+func dbProblemsFromCodeforces(problems []cf.CodeforcesProblem) []db.Problem {
 	dbProblems := make([]db.Problem, 0, len(problems))
 	for _, problem := range problems {
 		dbProblems = append(dbProblems, db.Problem{
@@ -75,10 +75,10 @@ func dbProblemsFromCodeforces(problems []codeforcesProblem) []db.Problem {
 	return dbProblems
 }
 
-func codeforcesProblemsFromDB(problems []db.Problem) []codeforcesProblem {
-	codeforcesProblems := make([]codeforcesProblem, 0, len(problems))
+func codeforcesProblemsFromDB(problems []db.Problem) []cf.CodeforcesProblem {
+	codeforcesProblems := make([]cf.CodeforcesProblem, 0, len(problems))
 	for _, problem := range problems {
-		codeforcesProblems = append(codeforcesProblems, codeforcesProblem{
+		codeforcesProblems = append(codeforcesProblems, cf.CodeforcesProblem{
 			ID:        problem.ID,
 			ContestID: problem.ContestID,
 			Index:     problem.Index,
@@ -91,14 +91,14 @@ func codeforcesProblemsFromDB(problems []db.Problem) []codeforcesProblem {
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, healthResponse{
+	cfjson.WriteJSON(w, http.StatusOK, healthResponse{
 		Status: "ok",
 		Time:   time.Now().UTC(),
 	})
 }
 
 func handleMessage(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, messageResponse{
+	cfjson.WriteJSON(w, http.StatusOK, messageResponse{
 		Message: "Hello from the Go backend.",
 	})
 }
@@ -106,7 +106,7 @@ func handleMessage(w http.ResponseWriter, r *http.Request) {
 func testAPI(w http.ResponseWriter, r *http.Request) {
 	params := []Param{{key: "hu", value: "ho"}}
 
-	writeJSON(w, http.StatusOK, messageResponse{
+	cfjson.WriteJSON(w, http.StatusOK, messageResponse{
 		Message: getSig("hello", params),
 	})
 }
@@ -124,13 +124,4 @@ func withCORS(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Printf("failed to write response: %v", err)
-	}
 }

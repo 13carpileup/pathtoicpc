@@ -1,0 +1,140 @@
+package db
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	cf "pathtoicpc/backend/codeforces"
+)
+
+func (s *authService) InitializeSchema(ctx context.Context) error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+
+	type statement struct {
+		query string
+		args  []any
+	}
+
+	statements := []statement{
+		{query: `CREATE TABLE IF NOT EXISTS users (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			email VARCHAR(255) NOT NULL,
+			username VARCHAR(64) NOT NULL,
+			password_hash VARCHAR(255) NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY users_email_unique (email),
+			UNIQUE KEY users_username_unique (username)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+		{query: `CREATE TABLE IF NOT EXISTS user_sessions (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			user_id BIGINT UNSIGNED NOT NULL,
+			token_hash CHAR(64) NOT NULL,
+			expires_at DATETIME NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY user_sessions_token_hash_unique (token_hash),
+			KEY user_sessions_user_id_index (user_id),
+			KEY user_sessions_expires_at_index (expires_at),
+			CONSTRAINT user_sessions_user_id_foreign
+				FOREIGN KEY (user_id) REFERENCES users(id)
+				ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+		{query: `CREATE TABLE IF NOT EXISTS problems (
+			id VARCHAR(255) NOT NULL PRIMARY KEY,
+			contest BIGINT UNSIGNED NOT NULL,
+			` + "`index`" + ` VARCHAR(16) NOT NULL,
+			rating BIGINT UNSIGNED,
+			tags JSON NOT NULL DEFAULT (JSON_ARRAY())
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+		{query: `CREATE TABLE IF NOT EXISTS submissions (
+			submission_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			user_id BIGINT NOT NULL,
+			problem_id VARCHAR(255) NOT NULL,
+			solved BOOLEAN NOT NULL,
+			status VARCHAR(255),
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+		{query: `CREATE TABLE IF NOT EXISTS problem_status (
+			problem_id VARCHAR(255) NOT NULL PRIMARY KEY,
+			user_id BIGINT NOT NULL,
+			solved BOOLEAN NOT NULL,
+			tracked BOOLEAN NOT NULL,
+			seconds_taken BIGINT
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+	}
+
+	problems, err := cf.GetProblemList(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	for _, problem := range problems {
+		tags, err := json.Marshal(problem.Tags)
+		if err != nil {
+			return fmt.Errorf("encode tags for problem %s: %w", problem.ID, err)
+		}
+
+		statements = append(statements, statement{
+			query: `INSERT INTO problems (id, contest, ` + "`index`" + `, rating, tags) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contest=contest`,
+			args:  []any{problem.ID, problem.ContestID, problem.Index, problem.Rating, string(tags)},
+		})
+	}
+
+	for _, statement := range statements {
+		if _, err := s.db.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *authService) ProblemsByRating(ctx context.Context, rating int) ([]Problem, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("mysql database is not configured")
+	}
+	if rating < 0 {
+		return nil, errors.New("rating must be non-negative")
+	}
+
+	rows, err := s.db.QueryContext(
+		ctx,
+		`SELECT id, contest, `+"`index`"+`, rating, tags
+		FROM problems
+		WHERE rating = ?
+		ORDER BY contest, `+"`index`",
+		rating,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var problems []Problem
+	for rows.Next() {
+		var problem Problem
+		var tagsJSON []byte
+
+		if err := rows.Scan(&problem.ID, &problem.ContestID, &problem.Index, &problem.Rating, &tagsJSON); err != nil {
+			return nil, err
+		}
+
+		if len(tagsJSON) > 0 {
+			if err := json.Unmarshal(tagsJSON, &problem.Tags); err != nil {
+				return nil, fmt.Errorf("decode tags for problem %s: %w", problem.ID, err)
+			}
+		}
+
+		problems = append(problems, problem)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return problems, nil
+}
