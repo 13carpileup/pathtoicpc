@@ -1,4 +1,4 @@
-package main
+package db
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	mysql "github.com/go-sql-driver/mysql"
 )
 
-func openDatabase() (*sql.DB, error) {
+func OpenDatabase() (*sql.DB, error) {
 	dsn := strings.TrimSpace(os.Getenv("MYSQL_DSN"))
 	if dsn == "" {
 		dsn = buildMySQLDSNFromEnv()
@@ -62,4 +62,12 @@ func buildMySQLDSNFromEnv() string {
 	}
 
 	return config.FormatDSN()
+}
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+
+	return fallback
 }

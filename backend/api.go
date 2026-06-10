@@ -1,11 +1,11 @@
-package main
+package backend
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -18,24 +18,12 @@ type messageResponse struct {
 	Message string `json:"message"`
 }
 
-func main() {
-	db, err := openDatabase()
-	if err != nil {
-		log.Fatalf("database setup failed: %v", err)
-	}
-	if db != nil {
-		defer db.Close()
-	}
+func InitializeSchema(ctx context.Context, db *sql.DB) error {
+	return newAuthService(db).initializeSchema(ctx)
+}
 
+func NewHandler(db *sql.DB) http.Handler {
 	auth := newAuthService(db)
-	if db != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := auth.initializeSchema(ctx); err != nil {
-			log.Fatalf("database schema setup failed: %v", err)
-		}
-	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", handleHealth)
@@ -44,24 +32,16 @@ func main() {
 	mux.HandleFunc("POST /api/auth/login", auth.handleLogin)
 	mux.HandleFunc("GET /api/auth/me", auth.handleMe)
 	mux.HandleFunc("POST /api/auth/logout", auth.handleLogout)
-	mux.HandleFunc("GET /api/cf", testApi)
+	mux.HandleFunc("GET /api/cf", testAPI)
 	mux.HandleFunc("GET /api/user.info", getUserInfo)
 	mux.HandleFunc("GET /api/user.status", getUserStatus)
 	mux.HandleFunc("GET /api/problemset.problems", getProblemsetProblems)
 
-	addr := ":" + getEnv("PORT", "8080")
-	server := &http.Server{
-		Addr:         addr,
-		Handler:      withCORS(mux),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
+	return withCORS(mux)
+}
 
-	log.Printf("backend listening on http://localhost%s", addr)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("server failed: %v", err)
-	}
+func ProblemsByRating(ctx context.Context, db *sql.DB, rating int) ([]codeforcesProblem, error) {
+	return newAuthService(db).getProblemsByRating(ctx, rating)
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -77,8 +57,8 @@ func handleMessage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func testApi(w http.ResponseWriter, r *http.Request) {
-	params := []Param{Param{key: "hu", value: "ho"}}
+func testAPI(w http.ResponseWriter, r *http.Request) {
+	params := []Param{{key: "hu", value: "ho"}}
 
 	writeJSON(w, http.StatusOK, messageResponse{
 		Message: getSig("hello", params),
@@ -107,12 +87,4 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		log.Printf("failed to write response: %v", err)
 	}
-}
-
-func getEnv(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-
-	return fallback
 }

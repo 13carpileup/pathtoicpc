@@ -1,12 +1,14 @@
-package main
+package backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,6 +23,28 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
+type codeforcesAPIResponse[T any] struct {
+	Status  string `json:"status"`
+	Comment string `json:"comment,omitempty"`
+	Result  T      `json:"result"`
+}
+
+type codeforcesProblemListResult struct {
+	Problems []codeforcesProblem `json:"problems"`
+}
+
+type codeforcesProblem struct {
+	ID             string
+	ContestID      int      `json:"contestId,omitempty"`
+	ProblemsetName string   `json:"problemsetName,omitempty"`
+	Index          string   `json:"index"`
+	Name           string   `json:"name"`
+	Type           string   `json:"type"`
+	Points         float64  `json:"points,omitempty"`
+	Rating         int      `json:"rating,omitempty"`
+	Tags           []string `json:"tags"`
+}
+
 func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	proxyCodeforces(w, r, "user.info", "handles")
 }
@@ -31,6 +55,38 @@ func getUserStatus(w http.ResponseWriter, r *http.Request) {
 
 func getProblemsetProblems(w http.ResponseWriter, r *http.Request) {
 	proxyCodeforces(w, r, "problemset.problems")
+}
+
+func getProblemList(ctx context.Context) ([]codeforcesProblem, error) {
+	body, status, _, err := requestCodeforces(ctx, "problemset.problems", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if status < http.StatusOK || status >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("codeforces problemset.problems returned status %d", status)
+	}
+
+	var response codeforcesAPIResponse[codeforcesProblemListResult]
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("decode codeforces problem list: %w", err)
+	}
+
+	if response.Status != "OK" {
+		if response.Comment != "" {
+			return nil, fmt.Errorf("codeforces problemset.problems failed: %s", response.Comment)
+		}
+
+		return nil, fmt.Errorf("codeforces problemset.problems failed with status %q", response.Status)
+	}
+
+	for i := range response.Result.Problems {
+		p := &response.Result.Problems[i]
+
+		p.ID = fmt.Sprintf("%s%s", strconv.Itoa(p.ContestID), p.Index)
+	}
+
+	return response.Result.Problems, nil
 }
 
 func getRecommendedProblem(w http.ResponseWriter, r *http.Request) {
