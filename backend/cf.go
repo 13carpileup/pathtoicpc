@@ -57,7 +57,7 @@ func getProblemsetProblems(w http.ResponseWriter, r *http.Request) {
 	proxyCodeforces(w, r, "problemset.problems")
 }
 
-func getProblemList(ctx context.Context) ([]codeforcesProblem, error) {
+func GetProblemList(ctx context.Context) ([]codeforcesProblem, error) {
 	body, status, _, err := requestCodeforces(ctx, "problemset.problems", nil)
 	if err != nil {
 		return nil, err

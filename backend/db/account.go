@@ -1,4 +1,4 @@
-package backend
+package db
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/mail"
 	"regexp"
@@ -28,6 +29,17 @@ var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 type authService struct {
 	db              *sql.DB
 	sessionDuration time.Duration
+	problemFetcher  ProblemFetcher
+}
+
+type ProblemFetcher func(context.Context) ([]Problem, error)
+
+type Problem struct {
+	ID        string
+	ContestID int
+	Index     string
+	Rating    int
+	Tags      []string
 }
 
 type registerRequest struct {
@@ -64,14 +76,28 @@ type authResponse struct {
 	ExpiresAt time.Time    `json:"expiresAt"`
 }
 
-func newAuthService(db *sql.DB) *authService {
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
+type messageResponse struct {
+	Message string `json:"message"`
+}
+
+func NewAuthService(db *sql.DB, problemFetchers ...ProblemFetcher) *authService {
+	var problemFetcher ProblemFetcher
+	if len(problemFetchers) > 0 {
+		problemFetcher = problemFetchers[0]
+	}
+
 	return &authService{
 		db:              db,
 		sessionDuration: 7 * 24 * time.Hour,
+		problemFetcher:  problemFetcher,
 	}
 }
 
-func (s *authService) initializeSchema(ctx context.Context) error {
+func (s *authService) InitializeSchema(ctx context.Context) error {
 	if s == nil || s.db == nil {
 		return nil
 	}
@@ -130,7 +156,17 @@ func (s *authService) initializeSchema(ctx context.Context) error {
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
 	}
 
-	problems, err := getProblemList(ctx)
+	if s.problemFetcher == nil {
+		for _, statement := range statements {
+			if _, err := s.db.ExecContext(ctx, statement.query, statement.args...); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	problems, err := s.problemFetcher(ctx)
 
 	if err != nil {
 		return err
@@ -157,7 +193,7 @@ func (s *authService) initializeSchema(ctx context.Context) error {
 	return nil
 }
 
-func (s *authService) getProblemsByRating(ctx context.Context, rating int) ([]codeforcesProblem, error) {
+func (s *authService) ProblemsByRating(ctx context.Context, rating int) ([]Problem, error) {
 	if s == nil || s.db == nil {
 		return nil, errors.New("mysql database is not configured")
 	}
@@ -178,9 +214,9 @@ func (s *authService) getProblemsByRating(ctx context.Context, rating int) ([]co
 	}
 	defer rows.Close()
 
-	var problems []codeforcesProblem
+	var problems []Problem
 	for rows.Next() {
-		var problem codeforcesProblem
+		var problem Problem
 		var tagsJSON []byte
 
 		if err := rows.Scan(&problem.ID, &problem.ContestID, &problem.Index, &problem.Rating, &tagsJSON); err != nil {
@@ -202,7 +238,7 @@ func (s *authService) getProblemsByRating(ctx context.Context, rating int) ([]co
 	return problems, nil
 }
 
-func (s *authService) handleRegister(w http.ResponseWriter, r *http.Request) {
+func (s *authService) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if !s.ensureEnabled(w) {
 		return
 	}
@@ -266,7 +302,7 @@ func (s *authService) handleRegister(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *authService) handleLogin(w http.ResponseWriter, r *http.Request) {
+func (s *authService) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if !s.ensureEnabled(w) {
 		return
 	}
@@ -311,7 +347,7 @@ func (s *authService) handleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *authService) handleMe(w http.ResponseWriter, r *http.Request) {
+func (s *authService) HandleMe(w http.ResponseWriter, r *http.Request) {
 	if !s.ensureEnabled(w) {
 		return
 	}
@@ -325,7 +361,7 @@ func (s *authService) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toUserResponse(user))
 }
 
-func (s *authService) handleLogout(w http.ResponseWriter, r *http.Request) {
+func (s *authService) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	if !s.ensureEnabled(w) {
 		return
 	}
@@ -483,6 +519,15 @@ func decodeJSONRequest(w http.ResponseWriter, r *http.Request, dst any) bool {
 	}
 
 	return true
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Printf("failed to write response: %v", err)
+	}
 }
 
 func bearerToken(r *http.Request) (string, error) {
