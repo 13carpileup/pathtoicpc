@@ -44,3 +44,10 @@ type CodeforcesSubmission struct {
 	Problem             CodeforcesProblem `json:"problem"`
 	User                string            `json:"author.members[0].handle"`
 }
+
+type CodeforcesIntegration struct {
+	UserID     int
+	CfAccount  string
+	ProblemID  string
+	ExpiryTime int
+}

@@ -25,16 +25,22 @@ func (s *authService) InitializeSchema(ctx context.Context) error {
 			username VARCHAR(64) NOT NULL,
 			password_hash VARCHAR(255) NOT NULL,
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			linked_cf BOOLEAN NOT NULL DEFAULT FALSE,
+			cf_account VARCHAR(255),
+
 			PRIMARY KEY (id),
 			UNIQUE KEY users_email_unique (email),
-			UNIQUE KEY users_username_unique (username)
+			UNIQUE KEY users_username_unique (username),
+			UNIQUE KEY cf_account_unique (cf_account)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+
 		{query: `CREATE TABLE IF NOT EXISTS user_sessions (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			user_id BIGINT UNSIGNED NOT NULL,
 			token_hash CHAR(64) NOT NULL,
 			expires_at DATETIME NOT NULL,
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
 			PRIMARY KEY (id),
 			UNIQUE KEY user_sessions_token_hash_unique (token_hash),
 			KEY user_sessions_user_id_index (user_id),
@@ -43,6 +49,7 @@ func (s *authService) InitializeSchema(ctx context.Context) error {
 				FOREIGN KEY (user_id) REFERENCES users(id)
 				ON DELETE CASCADE
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+
 		{query: `CREATE TABLE IF NOT EXISTS problems (
 			id VARCHAR(255) NOT NULL PRIMARY KEY,
 			contest BIGINT UNSIGNED NOT NULL,
@@ -50,6 +57,7 @@ func (s *authService) InitializeSchema(ctx context.Context) error {
 			rating BIGINT UNSIGNED,
 			tags JSON NOT NULL DEFAULT (JSON_ARRAY())
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+
 		{query: `CREATE TABLE IF NOT EXISTS submissions (
 			submission_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 			user_id BIGINT NOT NULL,
@@ -58,12 +66,20 @@ func (s *authService) InitializeSchema(ctx context.Context) error {
 			status VARCHAR(255),
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+
 		{query: `CREATE TABLE IF NOT EXISTS problem_status (
 			problem_id VARCHAR(255) NOT NULL PRIMARY KEY,
 			user_id BIGINT NOT NULL,
 			solved BOOLEAN NOT NULL,
 			tracked BOOLEAN NOT NULL,
 			seconds_taken BIGINT
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+
+		{query: `CREATE TABLE IF NOT EXISTS codeforces_linking (
+			user_id BIGINT NOT NULL PRIMARY KEY,
+			cf_account VARCHAR(255) NOT NULL,
+			problem_id VARCHAR(255) NOT NULL,
+			expires_at TIMESTAMP NOT NULL
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
 	}
 
