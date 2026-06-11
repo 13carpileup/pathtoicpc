@@ -8,14 +8,14 @@ import (
 	cf "pathtoicpc/backend/codeforces"
 )
 
+type statement struct {
+	query string
+	args  []any
+}
+
 func (s *authService) InitializeSchema(ctx context.Context) error {
 	if s == nil || s.db == nil {
 		return nil
-	}
-
-	type statement struct {
-		query string
-		args  []any
 	}
 
 	statements := []statement{
@@ -95,24 +95,40 @@ func (s *authService) InitializeSchema(ctx context.Context) error {
 }
 
 func (s *authService) ProblemsByRating(ctx context.Context, rating int) ([]Problem, error) {
-	if s == nil || s.db == nil {
-		return nil, errors.New("mysql database is not configured")
-	}
 	if rating < 0 {
 		return nil, errors.New("rating must be non-negative")
 	}
 
-	rows, err := s.db.QueryContext(
-		ctx,
+	problems, err := s.problemsByX(ctx,
 		`SELECT id, contest, `+"`index`"+`, rating, tags
 		FROM problems
 		WHERE rating = ?
 		ORDER BY contest, `+"`index`",
-		rating,
+		[]any{rating},
 	)
+
 	if err != nil {
 		return nil, err
 	}
+
+	return problems, nil
+}
+
+func (s *authService) problemsByX(ctx context.Context, query string, args []any) ([]Problem, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("mysql database is not configured")
+	}
+
+	rows, err := s.db.QueryContext(
+		ctx,
+		query,
+		args...,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	var problems []Problem
@@ -132,6 +148,7 @@ func (s *authService) ProblemsByRating(ctx context.Context, rating int) ([]Probl
 
 		problems = append(problems, problem)
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}

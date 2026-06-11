@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"pathtoicpc/backend"
+	cf "pathtoicpc/backend/codeforces"
 	"pathtoicpc/backend/db"
 )
 
@@ -30,14 +31,24 @@ func main() {
 	}
 
 	if database != nil {
-		problems, err := backend.ProblemsByRating(context.Background(), database, 1500)
+		// problems, err := backend.ProblemsByRating(context.Background(), database, 1500)
+		// if err != nil {
+		// 	log.Printf("failed to load problems rated 1500: %v", err)
+		// } else {
+		// 	log.Printf("Problems rated 1500: %d", len(problems))
+		// 	for _, element := range problems {
+		// 		log.Printf("%s", element.ID)
+		// 	}
+		// }
+
+		submissions, err := cf.GetRecentSubmissions(context.Background(), 10, "cccclimie")
+
 		if err != nil {
-			log.Printf("failed to load problems rated 1500: %v", err)
-		} else {
-			log.Printf("Problems rated 1500: %d", len(problems))
-			for _, element := range problems {
-				log.Printf("%s", element.ID)
-			}
+			log.Printf("failed to get submissions: %v", err)
+		}
+
+		for _, submission := range submissions {
+			log.Printf("%s, %s", submission.Problem.ID, submission.Verdict)
 		}
 	}
 

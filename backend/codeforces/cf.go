@@ -21,32 +21,6 @@ var codeforcesHTTPClient = &http.Client{
 	Timeout: 10 * time.Second,
 }
 
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
-type CodeforcesAPIResponse[T any] struct {
-	Status  string `json:"status"`
-	Comment string `json:"comment,omitempty"`
-	Result  T      `json:"result"`
-}
-
-type CodeforcesProblemListResult struct {
-	Problems []CodeforcesProblem `json:"problems"`
-}
-
-type CodeforcesProblem struct {
-	ID             string
-	ContestID      int      `json:"contestId,omitempty"`
-	ProblemsetName string   `json:"problemsetName,omitempty"`
-	Index          string   `json:"index"`
-	Name           string   `json:"name"`
-	Type           string   `json:"type"`
-	Points         float64  `json:"points,omitempty"`
-	Rating         int      `json:"rating,omitempty"`
-	Tags           []string `json:"tags"`
-}
-
 func GetUserInfo(w http.ResponseWriter, r *http.Request) {
 	proxyCodeforces(w, r, "user.info", "handles")
 }
@@ -83,12 +57,45 @@ func GetProblemList(ctx context.Context) ([]CodeforcesProblem, error) {
 	}
 
 	for i := range response.Result.Problems {
-		p := &response.Result.Problems[i]
-
-		p.ID = fmt.Sprintf("%s%s", strconv.Itoa(p.ContestID), p.Index)
+		addID(&response.Result.Problems[i])
 	}
 
 	return response.Result.Problems, nil
+}
+
+func GetRecentSubmissions(ctx context.Context, numSubmissions int, user string) ([]CodeforcesSubmission, error) {
+	query := url.Values{}
+	query.Set("handle", user)
+	query.Set("count", strconv.Itoa(numSubmissions))
+
+	body, status, _, err := requestCodeforces(ctx, "user.status", query)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if status < http.StatusOK || status >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("codeforces problemset.problems returned status %d", status)
+	}
+
+	var response CodeforcesAPIResponse[[]CodeforcesSubmission]
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("decode codeforces problem list: %w", err)
+	}
+
+	if response.Status != "OK" {
+		if response.Comment != "" {
+			return nil, fmt.Errorf("codeforces problemset.problems failed: %s", response.Comment)
+		}
+
+		return nil, fmt.Errorf("codeforces problemset.problems failed with status %q", response.Status)
+	}
+
+	for i := range response.Result {
+		addID(&response.Result[i].Problem)
+	}
+
+	return response.Result, nil
 }
 
 func getRecommendedProblem(w http.ResponseWriter, r *http.Request) {
