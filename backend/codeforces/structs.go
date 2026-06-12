@@ -40,6 +40,7 @@ type CodeforcesSubmission struct {
 	ID                  int               `json:"id"`
 	ContestID           int               `json:"contestId,omitempty"`
 	TimeConsumedMillis  int               `json:"timeConsumedMillis"`
+	CreationTime        int64             `json:"creationTimeSeconds"`
 	MemoryConsumedBytes int               `json:"memoryConsumedBytes"`
 	Verdict             string            `json:"verdict,omitempty"`
 	Problem             CodeforcesProblem `json:"problem"`
@@ -47,8 +48,9 @@ type CodeforcesSubmission struct {
 }
 
 type CodeforcesIntegration struct {
-	UserID     int
-	CfAccount  string
-	ProblemID  string
-	ExpiryTime time.Time
+	UserID       int64
+	CfAccount    string
+	ProblemID    string
+	CreationTime time.Time
+	ExpiryTime   time.Time
 }

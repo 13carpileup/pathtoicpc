@@ -8,7 +8,7 @@ import (
 	cf "pathtoicpc/backend/codeforces"
 )
 
-func (s *AuthService) InsertCodeforcesIntegration(ctx context.Context, userID int, codeforcesName string, problemID string) (time.Time, error) {
+func (s *AuthService) InsertCodeforcesIntegration(ctx context.Context, userID int64, codeforcesName string, problemID string) (time.Time, error) {
 	if s == nil || s.db == nil {
 		return time.Time{}, errors.New("mysql database is not configured")
 	}
@@ -18,15 +18,17 @@ func (s *AuthService) InsertCodeforcesIntegration(ctx context.Context, userID in
 
 	_, err := s.db.ExecContext(
 		ctx,
-		`INSERT INTO codeforces_linking (user_id, cf_account, problem_id, expires_at)
-		VALUES (?, ?, ?, ?)
+		`INSERT INTO codeforces_linking (user_id, cf_account, problem_id, creation_time, expires_at)
+		VALUES (?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 			cf_account = VALUES(cf_account),
 			problem_id = VALUES(problem_id),
+			creation_time = VALUES(creation_time),
 			expires_at = VALUES(expires_at)`,
 		userID,
 		codeforcesName,
 		problemID,
+		nowUTC,
 		expiryTime,
 	)
 
@@ -37,14 +39,14 @@ func (s *AuthService) InsertCodeforcesIntegration(ctx context.Context, userID in
 	return expiryTime, nil
 }
 
-func (s *AuthService) GetCodeforcesIntegration(ctx context.Context, userID int) (cf.CodeforcesIntegration, error) {
+func (s *AuthService) GetCodeforcesIntegration(ctx context.Context, userID int64) (cf.CodeforcesIntegration, error) {
 	if s == nil || s.db == nil {
 		return cf.CodeforcesIntegration{}, errors.New("mysql database is not configured")
 	}
 
 	rows, err := s.db.QueryContext(
 		ctx,
-		`SELECT user_id, cf_account, problem_id, expires_at
+		`SELECT user_id, cf_account, problem_id, creation_time, expires_at
 		FROM codeforces_linking
 		WHERE user_id = ?`,
 		userID,
@@ -60,7 +62,7 @@ func (s *AuthService) GetCodeforcesIntegration(ctx context.Context, userID int) 
 	for rows.Next() {
 		var integration cf.CodeforcesIntegration
 
-		if err := rows.Scan(&integration.UserID, &integration.CfAccount, &integration.ProblemID, &integration.ExpiryTime); err != nil {
+		if err := rows.Scan(&integration.UserID, &integration.CfAccount, &integration.ProblemID, &integration.CreationTime, &integration.ExpiryTime); err != nil {
 			return cf.CodeforcesIntegration{}, err
 		}
 
@@ -76,4 +78,23 @@ func (s *AuthService) GetCodeforcesIntegration(ctx context.Context, userID int) 
 	}
 
 	return integrations[0], nil
+}
+
+func (s *AuthService) UpdateCfAccount(ctx context.Context, userID int64, codeforcesUsername string) error {
+	if s == nil || s.db == nil {
+		return errors.New("mysql database is not configured")
+	}
+
+	_, err := s.db.ExecContext(
+		ctx,
+		`UPDATE users SET cf_account = ?, linked_cf = TRUE WHERE id = ?`,
+		codeforcesUsername,
+		userID,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

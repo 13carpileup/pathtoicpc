@@ -47,6 +47,9 @@ func NewHandler(dbs *sql.DB) http.Handler {
 	mux.HandleFunc("POST /api/connect_cf", func(w http.ResponseWriter, r *http.Request) {
 		HandleCodeforcesIntegration(dbs, *auth, w, r)
 	})
+	mux.HandleFunc("POST /api/verify_cf", func(w http.ResponseWriter, r *http.Request) {
+		HandleCodeforcesIntegration(dbs, *auth, w, r)
+	})
 
 	return withCORS(mux)
 }

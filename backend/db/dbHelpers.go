@@ -79,6 +79,7 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 			user_id BIGINT NOT NULL PRIMARY KEY,
 			cf_account VARCHAR(255) NOT NULL,
 			problem_id VARCHAR(255) NOT NULL,
+			creation_time TIMESTAMP NOT NULL,
 			expires_at TIMESTAMP NOT NULL
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
 	}
