@@ -53,7 +53,7 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 		{query: `CREATE TABLE IF NOT EXISTS problems (
 			id VARCHAR(255) NOT NULL PRIMARY KEY,
 			contest BIGINT UNSIGNED NOT NULL,
-			` + "`index`" + ` VARCHAR(16) NOT NULL,
+			letter VARCHAR(16) NOT NULL,
 			rating BIGINT UNSIGNED,
 			tags JSON NOT NULL DEFAULT (JSON_ARRAY())
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
@@ -96,7 +96,7 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 		}
 
 		statements = append(statements, statement{
-			query: `INSERT INTO problems (id, contest, ` + "`index`" + `, rating, tags) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contest=contest`,
+			query: `INSERT INTO problems (id, contest, letter, rating, tags) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contest=contest`,
 			args:  []any{problem.ID, problem.ContestID, problem.Index, problem.Rating, string(tags)},
 		})
 	}
@@ -115,11 +115,11 @@ func (s *AuthService) ProblemsByRating(ctx context.Context, rating int) ([]Probl
 		return nil, errors.New("rating must be non-negative")
 	}
 
-	problems, err := s.problemsByX(ctx,
-		`SELECT id, contest, `+"`index`"+`, rating, tags
+	problems, err := s.ProblemsByX(ctx,
+		`SELECT id, contest, letter, rating, tags
 		FROM problems
 		WHERE rating = ?
-		ORDER BY contest, `+"`index`",
+		ORDER BY contest, letter`,
 		[]any{rating},
 	)
 
@@ -130,7 +130,7 @@ func (s *AuthService) ProblemsByRating(ctx context.Context, rating int) ([]Probl
 	return problems, nil
 }
 
-func (s *AuthService) problemsByX(ctx context.Context, query string, args []any) ([]Problem, error) {
+func (s *AuthService) ProblemsByX(ctx context.Context, query string, args []any) ([]Problem, error) {
 	if s == nil || s.db == nil {
 		return nil, errors.New("mysql database is not configured")
 	}

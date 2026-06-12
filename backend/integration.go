@@ -2,11 +2,19 @@ package backend
 
 import (
 	"database/sql"
+	"encoding/json"
+	"errors"
+	"io"
+	"math/rand/v2"
 	"net/http"
+	"strings"
+	"time"
 
 	"pathtoicpc/backend/db"
 	cfjson "pathtoicpc/backend/json"
 )
+
+const maxIntegrationJSONBodySize = 1 << 20
 
 // for reference
 // type userRecord struct {
@@ -19,6 +27,15 @@ import (
 
 type integrationErrorResponse struct {
 	Error string `json:"error"`
+}
+
+type integrationData struct {
+	Problem string    `json:"problem"`
+	Expiry  time.Time `json:"expiresAt"`
+}
+
+type integrationRequest struct {
+	CodeforcesUsername string `json:"codeforces_username"`
 }
 
 func HandleCodeforcesIntegration(
@@ -38,6 +55,63 @@ func HandleCodeforcesIntegration(
 		return
 	}
 
-	_ = user
+	codeforcesUsername, ok := decodeIntegrationRequest(w, r)
+	if !ok {
+		return
+	}
 
+	problems, err := auth.ProblemsByX(r.Context(),
+		`SELECT id, contest, letter, rating, tags
+		FROM problems`,
+		[]any{},
+	)
+
+	if err != nil {
+		cfjson.WriteJSON(w, http.StatusServiceUnavailable, integrationErrorResponse{Error: "error selecting problem"})
+		return
+	}
+
+	randomIndex := rand.IntN(len(problems))
+	randomProblem := problems[randomIndex]
+
+	// actually insert data into integration db
+
+	expiryTime, err := auth.InsertCodeforcesIntegration(r.Context(), int(user.ID), codeforcesUsername, randomProblem.ID)
+
+	if err != nil {
+		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, integrationErrorResponse{Error: "failed to create integration listing in db, check logs"})
+		return
+	}
+
+	// giving user the data they need
+	cfjson.WriteJSON(w, http.StatusOK, integrationData{
+		Problem: randomProblem.ID,
+		Expiry:  expiryTime,
+	})
+}
+
+func decodeIntegrationRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxIntegrationJSONBodySize)
+
+	var req integrationRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&req); err != nil {
+		cfjson.WriteJSON(w, http.StatusBadRequest, integrationErrorResponse{Error: "invalid JSON request"})
+		return "", false
+	}
+
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		cfjson.WriteJSON(w, http.StatusBadRequest, integrationErrorResponse{Error: "request body must contain one JSON object"})
+		return "", false
+	}
+
+	codeforcesUsername := strings.TrimSpace(req.CodeforcesUsername)
+	if codeforcesUsername == "" {
+		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, integrationErrorResponse{Error: "codeforces username not provided"})
+		return "", false
+	}
+
+	return codeforcesUsername, true
 }

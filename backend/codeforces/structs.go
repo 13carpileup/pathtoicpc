@@ -3,6 +3,7 @@ package cf
 import (
 	"fmt"
 	"strconv"
+	"time"
 )
 
 func addID(p *CodeforcesProblem) {
@@ -49,5 +50,5 @@ type CodeforcesIntegration struct {
 	UserID     int
 	CfAccount  string
 	ProblemID  string
-	ExpiryTime int
+	ExpiryTime time.Time
 }
