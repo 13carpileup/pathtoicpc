@@ -108,7 +108,8 @@ h1 {
 .status-panel,
 .stat-card,
 .auth-panel,
-.account-summary {
+.account-summary,
+.cf-panel {
   border: 1px solid #dde2ea;
   border-radius: 8px;
   background: #ffffff;
@@ -156,19 +157,22 @@ h1 {
   margin-top: 1rem;
 }
 
-.auth-panel {
+.auth-panel,
+.cf-panel {
   display: grid;
   gap: 0.9rem;
   padding: 1rem;
 }
 
-.auth-panel h2 {
+.auth-panel h2,
+.cf-panel h2 {
   margin: 0;
   color: #111827;
   font-size: 1.25rem;
 }
 
-.auth-panel label {
+.auth-panel label,
+.cf-panel label {
   display: grid;
   gap: 0.35rem;
   color: #374151;
@@ -176,7 +180,8 @@ h1 {
   font-weight: 600;
 }
 
-.auth-panel input {
+.auth-panel input,
+.cf-panel input {
   width: 100%;
   border: 1px solid #cfd6e3;
   border-radius: 6px;
@@ -186,14 +191,20 @@ h1 {
   padding: 0.65rem 0.75rem;
 }
 
-.auth-panel input:focus {
+.auth-panel input:focus,
+.cf-panel input:focus {
   border-color: #1f7a5a;
   box-shadow: 0 0 0 3px rgb(31 122 90 / 0.14);
   outline: none;
 }
 
 .auth-panel button,
-.account-summary button {
+.account-summary button,
+.cf-panel button,
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: fit-content;
   min-height: 42px;
   border: 0;
@@ -204,12 +215,20 @@ h1 {
   font: inherit;
   font-weight: 700;
   padding: 0.65rem 0.9rem;
+  text-decoration: none;
 }
 
 .auth-panel button:disabled,
-.account-summary button:disabled {
+.account-summary button:disabled,
+.cf-panel button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
+}
+
+.button-link.secondary {
+  border: 1px solid #cfd6e3;
+  background: #ffffff;
+  color: #174ea6;
 }
 
 .form-status {
@@ -221,6 +240,18 @@ h1 {
   background: #f0faf5;
   color: #15523d;
   padding: 0.65rem 0.8rem;
+}
+
+.form-status.error {
+  border-color: #f4b8b0;
+  background: #fff4f2;
+  color: #8c251d;
+}
+
+.form-status.success {
+  border-color: #bfd8ca;
+  background: #f0faf5;
+  color: #15523d;
 }
 
 .account-summary {
@@ -248,6 +279,72 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.cf-workflow {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(280px, 1.15fr);
+  gap: 1rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.cf-panel-heading {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.cf-panel-heading span,
+.cf-meta dt {
+  color: #6b7280;
+  font-size: 0.86rem;
+}
+
+.cf-panel-heading strong {
+  color: #111827;
+  font-size: 1.35rem;
+  overflow-wrap: anywhere;
+}
+
+.cf-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.cf-meta div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.cf-meta dd {
+  margin: 0;
+  color: #111827;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.cf-meta .expired {
+  color: #8c251d;
+}
+
+.cf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.cf-empty {
+  max-width: 560px;
+  margin-top: 1rem;
+}
+
+.cf-empty p,
+.cf-muted {
+  margin: 0;
+  color: #4b5563;
+}
+
 @media (max-width: 640px) {
   .site-header {
     align-items: flex-start;
@@ -257,5 +354,10 @@ h1 {
   .site-nav {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .cf-workflow,
+  .cf-meta {
+    grid-template-columns: 1fr;
   }
 }

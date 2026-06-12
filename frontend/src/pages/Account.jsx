@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
-
-const authTokenKey = "pathtoicpc.authToken";
-const authUserKey = "pathtoicpc.authUser";
+import {
+  authHeaders,
+  authRequest,
+  clearSession,
+  getStoredAuthToken,
+  getStoredUser,
+  saveSession,
+  storeUser
+} from "../auth.js";
 
 const emptyLogin = {
   identifier: "",
@@ -47,7 +53,7 @@ export default function Account() {
 
         const data = await response.json();
         if (!ignore) {
-          localStorage.setItem(authUserKey, JSON.stringify(data));
+          storeUser(data);
           setUser(data);
           setStatus("");
         }
@@ -240,53 +246,4 @@ export default function Account() {
       )}
     </section>
   );
-}
-
-function getStoredAuthToken() {
-  return localStorage.getItem(authTokenKey) || "";
-}
-
-function getStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem(authUserKey));
-  } catch {
-    return null;
-  }
-}
-
-function authHeaders(token) {
-  return {
-    Authorization: `Bearer ${token}`
-  };
-}
-
-async function authRequest(path, payload) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || "Authentication request failed.");
-  }
-
-  return data;
-}
-
-function saveSession(data, setToken, setUser) {
-  localStorage.setItem(authTokenKey, data.token);
-  localStorage.setItem(authUserKey, JSON.stringify(data.user));
-  setToken(data.token);
-  setUser(data.user);
-}
-
-function clearSession(setToken, setUser) {
-  localStorage.removeItem(authTokenKey);
-  localStorage.removeItem(authUserKey);
-  setToken("");
-  setUser(null);
 }
