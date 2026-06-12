@@ -7,15 +7,15 @@ import (
 	cf "pathtoicpc/backend/codeforces"
 )
 
-func (s *AuthService) GetCodeforcesIntegration(ctx context.Context, query string, args []any) (cf.CodeforcesIntegration, error) {
+func (s *AuthService) GetCodeforcesIntegration(ctx context.Context, userID int) (cf.CodeforcesIntegration, error) {
 	if s == nil || s.db == nil {
 		return cf.CodeforcesIntegration{}, errors.New("mysql database is not configured")
 	}
 
 	rows, err := s.db.QueryContext(
 		ctx,
-		query,
-		args...,
+		"SELECT FROM codeforces_linking WHERE user_id = ?",
+		userID,
 	)
 
 	if err != nil {
