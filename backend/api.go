@@ -28,16 +28,25 @@ func NewHandler(dbs *sql.DB) http.Handler {
 	auth := db.NewAuthService(dbs)
 
 	mux := http.NewServeMux()
+
+	// stupid endpoints
 	mux.HandleFunc("GET /api/health", handleHealth)
 	mux.HandleFunc("GET /api/message", handleMessage)
+
+	// auth endpoints
 	mux.HandleFunc("POST /api/auth/register", auth.HandleRegister)
 	mux.HandleFunc("POST /api/auth/login", auth.HandleLogin)
 	mux.HandleFunc("GET /api/auth/me", auth.HandleMe)
 	mux.HandleFunc("POST /api/auth/logout", auth.HandleLogout)
+
+	// cf endpoints
 	mux.HandleFunc("GET /api/cf", testAPI)
 	mux.HandleFunc("GET /api/user.info", cf.GetUserInfo)
 	mux.HandleFunc("GET /api/user.status", cf.GetUserStatus)
 	mux.HandleFunc("GET /api/problemset.problems", cf.GetProblemsetProblems)
+	mux.HandleFunc("POST /api/connect_cf", func(w http.ResponseWriter, r *http.Request) {
+		HandleCodeforcesIntegration(dbs, *auth, w, r)
+	})
 
 	return withCORS(mux)
 }

@@ -13,7 +13,7 @@ type statement struct {
 	args  []any
 }
 
-func (s *authService) InitializeSchema(ctx context.Context) error {
+func (s *AuthService) InitializeSchema(ctx context.Context) error {
 	if s == nil || s.db == nil {
 		return nil
 	}
@@ -110,7 +110,7 @@ func (s *authService) InitializeSchema(ctx context.Context) error {
 	return nil
 }
 
-func (s *authService) ProblemsByRating(ctx context.Context, rating int) ([]Problem, error) {
+func (s *AuthService) ProblemsByRating(ctx context.Context, rating int) ([]Problem, error) {
 	if rating < 0 {
 		return nil, errors.New("rating must be non-negative")
 	}
@@ -130,7 +130,7 @@ func (s *authService) ProblemsByRating(ctx context.Context, rating int) ([]Probl
 	return problems, nil
 }
 
-func (s *authService) problemsByX(ctx context.Context, query string, args []any) ([]Problem, error) {
+func (s *AuthService) problemsByX(ctx context.Context, query string, args []any) ([]Problem, error) {
 	if s == nil || s.db == nil {
 		return nil, errors.New("mysql database is not configured")
 	}

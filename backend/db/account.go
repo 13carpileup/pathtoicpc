@@ -27,7 +27,7 @@ const maxJSONBodySize = 1 << 20
 
 var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 
-type authService struct {
+type AuthService struct {
 	db              *sql.DB
 	sessionDuration time.Duration
 }
@@ -63,6 +63,8 @@ type userRecord struct {
 	CreatedAt    time.Time
 }
 
+type UserRecord = userRecord
+
 type userResponse struct {
 	ID        int64     `json:"id"`
 	Email     string    `json:"email"`
@@ -84,14 +86,14 @@ type messageResponse struct {
 	Message string `json:"message"`
 }
 
-func NewAuthService(db *sql.DB) *authService {
-	return &authService{
+func NewAuthService(db *sql.DB) *AuthService {
+	return &AuthService{
 		db:              db,
 		sessionDuration: 7 * 24 * time.Hour,
 	}
 }
 
-func (s *authService) HandleRegister(w http.ResponseWriter, r *http.Request) {
+func (s *AuthService) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if !s.ensureEnabled(w) {
 		return
 	}
@@ -155,7 +157,7 @@ func (s *authService) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *authService) HandleLogin(w http.ResponseWriter, r *http.Request) {
+func (s *AuthService) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if !s.ensureEnabled(w) {
 		return
 	}
@@ -200,12 +202,12 @@ func (s *authService) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *authService) HandleMe(w http.ResponseWriter, r *http.Request) {
+func (s *AuthService) HandleMe(w http.ResponseWriter, r *http.Request) {
 	if !s.ensureEnabled(w) {
 		return
 	}
 
-	user, err := s.userFromRequest(r)
+	user, err := s.UserFromRequest(r)
 	if err != nil {
 		cfjson.WriteJSON(w, http.StatusUnauthorized, errorResponse{Error: "authentication required"})
 		return
@@ -214,7 +216,7 @@ func (s *authService) HandleMe(w http.ResponseWriter, r *http.Request) {
 	cfjson.WriteJSON(w, http.StatusOK, toUserResponse(user))
 }
 
-func (s *authService) HandleLogout(w http.ResponseWriter, r *http.Request) {
+func (s *AuthService) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	if !s.ensureEnabled(w) {
 		return
 	}
@@ -237,7 +239,7 @@ func (s *authService) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	cfjson.WriteJSON(w, http.StatusOK, messageResponse{Message: "Logged out."})
 }
 
-func (s *authService) ensureEnabled(w http.ResponseWriter) bool {
+func (s *AuthService) ensureEnabled(w http.ResponseWriter) bool {
 	if s != nil && s.db != nil {
 		return true
 	}
@@ -246,7 +248,7 @@ func (s *authService) ensureEnabled(w http.ResponseWriter) bool {
 	return false
 }
 
-func (s *authService) getUserByID(ctx context.Context, userID int64) (userRecord, error) {
+func (s *AuthService) getUserByID(ctx context.Context, userID int64) (userRecord, error) {
 	var user userRecord
 	err := s.db.QueryRowContext(
 		ctx,
@@ -256,7 +258,7 @@ func (s *authService) getUserByID(ctx context.Context, userID int64) (userRecord
 	return user, err
 }
 
-func (s *authService) getUserByIdentifier(ctx context.Context, identifier string) (userRecord, error) {
+func (s *AuthService) getUserByIdentifier(ctx context.Context, identifier string) (userRecord, error) {
 	var user userRecord
 	err := s.db.QueryRowContext(
 		ctx,
@@ -270,7 +272,7 @@ func (s *authService) getUserByIdentifier(ctx context.Context, identifier string
 	return user, err
 }
 
-func (s *authService) userFromRequest(r *http.Request) (userRecord, error) {
+func (s *AuthService) UserFromRequest(r *http.Request) (userRecord, error) {
 	token, err := bearerToken(r)
 	if err != nil {
 		return userRecord{}, err
@@ -291,7 +293,7 @@ func (s *authService) userFromRequest(r *http.Request) (userRecord, error) {
 	return user, err
 }
 
-func (s *authService) createSession(ctx context.Context, userID int64) (string, time.Time, error) {
+func (s *AuthService) createSession(ctx context.Context, userID int64) (string, time.Time, error) {
 	token, err := newSessionToken()
 	if err != nil {
 		return "", time.Time{}, err
