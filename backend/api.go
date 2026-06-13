@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"database/sql"
+	"log"
 	"net/http"
 	"time"
 
@@ -25,6 +26,16 @@ func InitializeSchema(ctx context.Context, dbs *sql.DB) error {
 }
 
 func NewHandler(dbs *sql.DB) http.Handler {
+	problem, err := cf.GetProblemText(context.Background(), "2236G")
+
+	log.Printf("trying prob 22 wtver")
+
+	if err != nil {
+		log.Printf("ruh roh")
+	} else {
+		log.Printf("%s", problem)
+	}
+
 	auth := db.NewAuthService(dbs)
 
 	mux := http.NewServeMux()

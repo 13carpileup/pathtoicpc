@@ -34,6 +34,7 @@ type CodeforcesProblem struct {
 	Points         float64  `json:"points,omitempty"`
 	Rating         int      `json:"rating,omitempty"`
 	Tags           []string `json:"tags"`
+	ProblemText    string
 }
 
 type CodeforcesSubmission struct {
