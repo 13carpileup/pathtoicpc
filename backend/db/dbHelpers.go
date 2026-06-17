@@ -81,6 +81,15 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 			creation_time TIMESTAMP NOT NULL,
 			expires_at TIMESTAMP NOT NULL
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+
+		{query: `CREATE TABLE IF NOT EXISTS challenges (
+			challenge_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			user_id BIGINT NOT NULL,
+			problem_id VARCHAR(255) NOT NULL,
+			solved BOOLEAN NOT NULL,
+			creation_time TIMESTAMP NOT NULL,
+			expires_at TIMESTAMP NOT NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
 	}
 
 	problems, err := cf.GetProblemList(ctx)
