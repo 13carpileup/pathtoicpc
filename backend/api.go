@@ -62,6 +62,14 @@ func NewHandler(dbs *sql.DB) http.Handler {
 		VerifyCodeforcesIntegration(dbs, *auth, w, r)
 	})
 
+	// actual challenge endpoints
+	mux.HandleFunc("GET /api/chal", func(w http.ResponseWriter, r *http.Request) {
+		GetChallenge(dbs, *auth, w, r)
+	})
+	mux.HandleFunc("POST /api/chal-update", func(w http.ResponseWriter, r *http.Request) {
+		GetChallenge(dbs, *auth, w, r)
+	})
+
 	return withCORS(mux)
 }
 
