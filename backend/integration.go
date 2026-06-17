@@ -2,20 +2,14 @@ package backend
 
 import (
 	"database/sql"
-	"encoding/json"
-	"errors"
-	"io"
 	"math/rand/v2"
 	"net/http"
-	"strings"
 	"time"
 
 	cf "pathtoicpc/backend/codeforces"
 	"pathtoicpc/backend/db"
 	cfjson "pathtoicpc/backend/json"
 )
-
-const maxIntegrationJSONBodySize = 1 << 20
 
 // for reference
 // type userRecord struct {
@@ -26,17 +20,9 @@ const maxIntegrationJSONBodySize = 1 << 20
 // 	CreatedAt    time.Time
 // }
 
-type integrationErrorResponse struct {
-	Error string `json:"error"`
-}
-
 type integrationData struct {
 	Problem string    `json:"problem"`
 	Expiry  time.Time `json:"expiresAt"`
-}
-
-type integrationRequest struct {
-	CodeforcesUsername string `json:"codeforces_username"`
 }
 
 func HandleCodeforcesIntegration(
@@ -46,17 +32,17 @@ func HandleCodeforcesIntegration(
 	r *http.Request,
 ) {
 	if dbs == nil {
-		cfjson.WriteJSON(w, http.StatusServiceUnavailable, integrationErrorResponse{Error: "mysql database is not configured"})
+		cfjson.WriteJSON(w, http.StatusServiceUnavailable, cfjson.ErrorResponse{Error: "mysql database is not configured"})
 		return
 	}
 
 	user, err := auth.UserFromRequest(r)
 	if err != nil {
-		cfjson.WriteJSON(w, http.StatusUnauthorized, integrationErrorResponse{Error: "authentication required"})
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "authentication required"})
 		return
 	}
 
-	codeforcesUsername, ok := decodeIntegrationRequest(w, r)
+	codeforcesUsername, ok := cfjson.DecodeIntegrationRequest(w, r)
 	if !ok {
 		return
 	}
@@ -68,7 +54,7 @@ func HandleCodeforcesIntegration(
 	)
 
 	if err != nil {
-		cfjson.WriteJSON(w, http.StatusServiceUnavailable, integrationErrorResponse{Error: "error selecting problem"})
+		cfjson.WriteJSON(w, http.StatusServiceUnavailable, cfjson.ErrorResponse{Error: "error selecting problem"})
 		return
 	}
 
@@ -80,7 +66,7 @@ func HandleCodeforcesIntegration(
 	expiryTime, err := auth.InsertCodeforcesIntegration(r.Context(), user.ID, codeforcesUsername, randomProblem.ID)
 
 	if err != nil {
-		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, integrationErrorResponse{Error: "failed to create integration listing in db, check logs"})
+		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, cfjson.ErrorResponse{Error: "failed to create integration listing in db, check logs"})
 		return
 	}
 
@@ -98,25 +84,25 @@ func VerifyCodeforcesIntegration(
 	r *http.Request,
 ) {
 	if dbs == nil {
-		cfjson.WriteJSON(w, http.StatusServiceUnavailable, integrationErrorResponse{Error: "mysql database is not configured"})
+		cfjson.WriteJSON(w, http.StatusServiceUnavailable, cfjson.ErrorResponse{Error: "mysql database is not configured"})
 		return
 	}
 
 	user, err := auth.UserFromRequest(r)
 	if err != nil {
-		cfjson.WriteJSON(w, http.StatusUnauthorized, integrationErrorResponse{Error: "authentication required"})
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "authentication required"})
 		return
 	}
 
 	integration, err := auth.GetCodeforcesIntegration(r.Context(), user.ID)
 	if err != nil {
-		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, integrationErrorResponse{Error: "failed to load codeforces integration"})
+		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, cfjson.ErrorResponse{Error: "failed to load codeforces integration"})
 		return
 	}
 
 	submissions, err := cf.GetRecentSubmissions(r.Context(), 1, integration.CfAccount)
 	if len(submissions) == 0 {
-		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, integrationErrorResponse{Error: "failed to get recent submissions"})
+		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, cfjson.ErrorResponse{Error: "failed to get recent submissions"})
 		return
 	}
 
@@ -124,43 +110,17 @@ func VerifyCodeforcesIntegration(
 	submissionTime := time.Unix(firstSubmission.CreationTime, 0).UTC()
 
 	if integration.ExpiryTime.Compare(submissionTime) == -1 || integration.CreationTime.Compare(submissionTime) == 1 || firstSubmission.Problem.ID != integration.ProblemID {
-		cfjson.WriteJSON(w, http.StatusUnauthorized, integrationErrorResponse{Error: "verification failed"})
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "verification failed"})
 		return
 	}
 
 	err = auth.UpdateCfAccount(r.Context(), user.ID, integration.CfAccount)
 
 	if err != nil {
-		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, integrationErrorResponse{Error: "failed to update username"})
+		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, cfjson.ErrorResponse{Error: "failed to update username"})
 		return
 	}
 
 	// giving user the data they need
 	cfjson.WriteJSON(w, http.StatusOK, messageResponse{Message: "updated cf username"})
-}
-
-func decodeIntegrationRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxIntegrationJSONBodySize)
-
-	var req integrationRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(&req); err != nil {
-		cfjson.WriteJSON(w, http.StatusBadRequest, integrationErrorResponse{Error: "invalid JSON request"})
-		return "", false
-	}
-
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		cfjson.WriteJSON(w, http.StatusBadRequest, integrationErrorResponse{Error: "request body must contain one JSON object"})
-		return "", false
-	}
-
-	codeforcesUsername := strings.TrimSpace(req.CodeforcesUsername)
-	if codeforcesUsername == "" {
-		cfjson.WriteJSON(w, http.StatusUnprocessableEntity, integrationErrorResponse{Error: "codeforces username not provided"})
-		return "", false
-	}
-
-	return codeforcesUsername, true
 }
