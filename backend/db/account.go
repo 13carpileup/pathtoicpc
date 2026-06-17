@@ -56,11 +56,13 @@ type loginRequest struct {
 }
 
 type userRecord struct {
-	ID           int64
-	Email        string
-	Username     string
-	PasswordHash string
-	CreatedAt    time.Time
+	ID            int64
+	Email         string
+	Username      string
+	PasswordHash  string
+	CreatedAt     time.Time
+	HasCodeforces bool
+	Codeforces    string
 }
 
 type UserRecord = userRecord
@@ -281,14 +283,14 @@ func (s *AuthService) UserFromRequest(r *http.Request) (userRecord, error) {
 	var user userRecord
 	err = s.db.QueryRowContext(
 		r.Context(),
-		`SELECT users.id, users.email, users.username, users.password_hash, users.created_at
+		`SELECT users.id, users.email, users.username, users.password_hash, users.created_at, users.linked_cf, users.cf_account
 		FROM user_sessions
 		INNER JOIN users ON users.id = user_sessions.user_id
 		WHERE user_sessions.token_hash = ? AND user_sessions.expires_at > ?
 		LIMIT 1`,
 		hashSessionToken(token),
 		time.Now().UTC(),
-	).Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.CreatedAt)
+	).Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.CreatedAt, &user.HasCodeforces, &user.Codeforces)
 
 	return user, err
 }
