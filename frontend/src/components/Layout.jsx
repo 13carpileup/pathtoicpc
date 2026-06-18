@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 const navItems = [
   { to: "/", label: "Home" },
   { to: "/account", label: "Account" },
-  { to: "/codeforces", label: "Codeforces" },
+  { to: "/codeforces", label: "Practice" },
   { to: "/about", label: "About" },
   { to: "/dashboard", label: "Dashboard" }
 ];

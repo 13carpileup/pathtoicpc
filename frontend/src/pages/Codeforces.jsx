@@ -9,12 +9,30 @@ import {
   storeUser
 } from "../auth.js";
 
-const challengeKey = "pathtoicpc.cfChallenge";
+const challengeKey = "pathtoicpc.activeChallenge";
+
+const difficulties = [
+  {
+    value: "EASY",
+    label: "Easy",
+    delta: "-200"
+  },
+  {
+    value: "MEDIUM",
+    label: "Medium",
+    delta: "Current"
+  },
+  {
+    value: "HARD",
+    label: "Hard",
+    delta: "+200"
+  }
+];
 
 export default function Codeforces() {
   const [token, setToken] = useState(getStoredAuthToken);
   const [user, setUser] = useState(() => (getStoredAuthToken() ? getStoredUser() : null));
-  const [handle, setHandle] = useState("");
+  const [difficulty, setDifficulty] = useState("MEDIUM");
   const [challenge, setChallenge] = useState(() => getStoredChallenge(getStoredUser()?.id));
   const [status, setStatus] = useState("");
   const [statusTone, setStatusTone] = useState("neutral");
@@ -74,19 +92,20 @@ export default function Codeforces() {
     };
   }, []);
 
-  const remainingMs = challenge
-    ? Math.max(0, new Date(challenge.expiresAt).getTime() - now)
-    : 0;
+  const expiryTime = getChallengeExpiry(challenge);
+  const remainingMs = expiryTime ? Math.max(0, new Date(expiryTime).getTime() - now) : 0;
   const isExpired = Boolean(challenge) && remainingMs <= 0;
-  const problemURL = useMemo(() => getCodeforcesProblemURL(challenge?.problem), [challenge]);
+  const problemURL = useMemo(
+    () => getCodeforcesProblemURL(challenge?.problem_id),
+    [challenge?.problem_id]
+  );
 
   async function startChallenge(event) {
     event.preventDefault();
 
-    const trimmedHandle = handle.trim();
-    if (!trimmedHandle) {
+    if (!token || !user) {
       setStatusTone("error");
-      setStatus("Enter a Codeforces handle.");
+      setStatus("Please log in first.");
       return;
     }
 
@@ -94,23 +113,17 @@ export default function Codeforces() {
     setStatus("");
 
     try {
-      const data = await apiRequest("/api/connect_cf", {
+      const data = await apiRequest("/api/chal", {
         method: "POST",
         headers: jsonHeaders(token),
-        body: JSON.stringify({ codeforces_username: trimmedHandle })
+        body: JSON.stringify({ challenge_type: difficulty })
       });
 
-      const nextChallenge = {
-        userId: user.id,
-        handle: trimmedHandle,
-        problem: data.problem,
-        expiresAt: data.expiresAt
-      };
-
+      const nextChallenge = normalizeChallenge(data, user.id, difficulty);
       localStorage.setItem(challengeKey, JSON.stringify(nextChallenge));
       setChallenge(nextChallenge);
       setStatusTone("success");
-      setStatus("Challenge created.");
+      setStatus("Challenge started.");
     } catch (error) {
       setStatusTone("error");
       setStatus(error.message);
@@ -120,19 +133,26 @@ export default function Codeforces() {
   }
 
   async function verifyChallenge() {
+    if (!challenge?.challenge_id) {
+      setStatusTone("error");
+      setStatus("Start a challenge first.");
+      return;
+    }
+
     setIsVerifying(true);
     setStatus("");
 
     try {
-      const data = await apiRequest("/api/verify_cf", {
+      const data = await apiRequest("/api/chal-update", {
         method: "POST",
-        headers: authHeaders(token)
+        headers: jsonHeaders(token),
+        body: JSON.stringify({ challenge_id: challenge.challenge_id })
       });
 
       localStorage.removeItem(challengeKey);
       setChallenge(null);
       setStatusTone("success");
-      setStatus(data.message || "Codeforces account linked.");
+      setStatus(data.message || "Challenge solved.");
     } catch (error) {
       setStatusTone("error");
       setStatus(error.message);
@@ -143,91 +163,122 @@ export default function Codeforces() {
 
   return (
     <section className="page-section cf-page">
-      <p className="eyebrow">Codeforces</p>
-      <h1>Link your Codeforces handle.</h1>
+      <p className="eyebrow">Practice</p>
+      <h1>Timed Codeforces challenge.</h1>
 
       {status ? <p className={`form-status ${statusTone}`}>{status}</p> : null}
 
       {!token || !user ? (
         <div className="cf-panel cf-empty">
           <h2>Sign in first</h2>
-          <p>Use an account before starting a Codeforces challenge.</p>
+          <p>Use an account before starting a challenge.</p>
           <Link className="button-link" to="/account">
             Account
           </Link>
         </div>
       ) : (
-        <div className="cf-workflow">
-          <form className="cf-panel" onSubmit={startChallenge}>
-            <div className="cf-panel-heading">
-              <span>Handle</span>
-              <strong>{user.username}</strong>
-            </div>
-            <label>
-              Codeforces handle
-              <input
-                autoComplete="username"
-                value={handle}
-                onChange={(event) => setHandle(event.target.value)}
-                placeholder="tourist"
-                required
-              />
-            </label>
-            <button type="submit" disabled={isStarting || isVerifying}>
-              {isStarting ? "Generating..." : "Generate challenge"}
-            </button>
-          </form>
+        <>
+          <div className="cf-workflow">
+            <form className="cf-panel cf-generator" onSubmit={startChallenge}>
+              <div className="cf-panel-heading">
+                <span>Player</span>
+                <strong>{user.username}</strong>
+              </div>
 
-          <section className="cf-panel cf-challenge" aria-live="polite">
-            <div className="cf-panel-heading">
-              <span>Assigned problem</span>
-              <strong>{challenge ? challenge.problem : "None"}</strong>
-            </div>
-
-            {challenge ? (
-              <>
-                <dl className="cf-meta">
-                  <div>
-                    <dt>Handle</dt>
-                    <dd>{challenge.handle}</dd>
-                  </div>
-                  <div>
-                    <dt>Time left</dt>
-                    <dd className={isExpired ? "expired" : undefined}>
-                      {isExpired ? "Expired" : formatDuration(remainingMs)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Expires</dt>
-                    <dd>{new Date(challenge.expiresAt).toLocaleTimeString()}</dd>
-                  </div>
-                </dl>
-
-                <div className="cf-actions">
-                  {problemURL ? (
-                    <a
-                      className="button-link secondary"
-                      href={problemURL}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Open problem
-                    </a>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={verifyChallenge}
-                    disabled={isVerifying || isExpired}
-                  >
-                    {isVerifying ? "Checking..." : "Verify submission"}
-                  </button>
+              <fieldset className="difficulty-picker">
+                <legend>Difficulty</legend>
+                <div>
+                  {difficulties.map((option) => (
+                    <label key={option.value}>
+                      <input
+                        checked={difficulty === option.value}
+                        name="difficulty"
+                        onChange={() => setDifficulty(option.value)}
+                        type="radio"
+                        value={option.value}
+                      />
+                      <span>
+                        <strong>{option.label}</strong>
+                        <small>{option.delta}</small>
+                      </span>
+                    </label>
+                  ))}
                 </div>
-              </>
-            ) : (
-              <p className="cf-muted">Generate a challenge to receive a problem.</p>
-            )}
-          </section>
-        </div>
+              </fieldset>
+
+              <button type="submit" disabled={isStarting || isVerifying}>
+                {isStarting ? "Starting..." : challenge ? "Start new challenge" : "Start challenge"}
+              </button>
+            </form>
+
+            <section className="cf-panel cf-challenge" aria-live="polite">
+              <div className="cf-panel-heading">
+                <span>Assigned problem</span>
+                <strong>{challenge ? challenge.problem_id : "None"}</strong>
+              </div>
+
+              {challenge ? (
+                <>
+                  <dl className="cf-meta">
+                    <div>
+                      <dt>Difficulty</dt>
+                      <dd>{formatDifficulty(challenge.difficulty)}</dd>
+                    </div>
+                    <div>
+                      <dt>Time left</dt>
+                      <dd className={isExpired ? "expired" : undefined}>
+                        {isExpired ? "Expired" : formatDuration(remainingMs)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Expires</dt>
+                      <dd>{formatDateTime(expiryTime)}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="cf-actions">
+                    {problemURL ? (
+                      <a
+                        className="button-link secondary"
+                        href={problemURL}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Open problem
+                      </a>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={verifyChallenge}
+                      disabled={isVerifying || isStarting || isExpired}
+                    >
+                      {isVerifying ? "Checking..." : "Verify solve"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="cf-muted">No active challenge.</p>
+              )}
+            </section>
+          </div>
+
+          {challenge ? (
+            <article className="problem-panel">
+              <header>
+                <span>Problem statement</span>
+                <strong>{challenge.problem_id}</strong>
+              </header>
+              {challenge.challenge_text ? (
+                <div
+                  className="challenge-statement"
+                  dangerouslySetInnerHTML={{ __html: challenge.challenge_text }}
+                />
+              ) : (
+                <p className="cf-muted">Problem text is unavailable.</p>
+              )}
+            </article>
+          ) : null}
+        </>
       )}
     </section>
   );
@@ -237,11 +288,33 @@ async function apiRequest(path, options) {
   const response = await fetch(path, options);
   const data = await response.json().catch(() => ({}));
 
+  if (data.error) {
+    throw new Error(data.error);
+  }
+
   if (!response.ok) {
-    throw new Error(data.error || "Request failed.");
+    throw new Error(`Request failed with ${response.status}.`);
   }
 
   return data;
+}
+
+function normalizeChallenge(data, userId, difficulty) {
+  if (!data || !data.challenge_id || !data.problem_id || !data.expiry_time) {
+    throw new Error("Challenge response was incomplete.");
+  }
+
+  return {
+    userId,
+    difficulty,
+    challenge_id: data.challenge_id,
+    user_id: data.user_id,
+    problem_id: data.problem_id,
+    solved: Boolean(data.solved),
+    creation_time: data.creation_time,
+    expiry_time: data.expiry_time,
+    challenge_text: data.challenge_text || ""
+  };
 }
 
 function getStoredChallenge(userId) {
@@ -255,7 +328,8 @@ function getStoredChallenge(userId) {
       return null;
     }
 
-    if (new Date(challenge.expiresAt).getTime() <= Date.now()) {
+    const expiryTime = getChallengeExpiry(challenge);
+    if (!expiryTime || new Date(expiryTime).getTime() <= Date.now()) {
       localStorage.removeItem(challengeKey);
       return null;
     }
@@ -267,12 +341,16 @@ function getStoredChallenge(userId) {
   }
 }
 
+function getChallengeExpiry(challenge) {
+  return challenge?.expiry_time || challenge?.expiresAt || "";
+}
+
 function getCodeforcesProblemURL(problemId) {
   if (!problemId) {
     return "";
   }
 
-  const match = /^(\d+)([A-Za-z]\d*)$/.exec(problemId);
+  const match = /^(\d+)\/?([A-Za-z][A-Za-z0-9]*)$/.exec(problemId);
   if (!match) {
     return "";
   }
@@ -280,10 +358,36 @@ function getCodeforcesProblemURL(problemId) {
   return `https://codeforces.com/problemset/problem/${match[1]}/${match[2]}`;
 }
 
+function formatDifficulty(value) {
+  const option = difficulties.find((difficulty) => difficulty.value === value);
+  return option?.label || "Medium";
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "Unknown";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  return date.toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short"
+  });
+}
+
 function formatDuration(milliseconds) {
-  const totalSeconds = Math.ceil(milliseconds / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
 
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }

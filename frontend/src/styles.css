@@ -109,7 +109,8 @@ h1 {
 .stat-card,
 .auth-panel,
 .account-summary,
-.cf-panel {
+.cf-panel,
+.problem-panel {
   border: 1px solid #dde2ea;
   border-radius: 8px;
   background: #ffffff;
@@ -304,6 +305,81 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.difficulty-picker {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.difficulty-picker legend {
+  margin-bottom: 0.1rem;
+  color: #374151;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.difficulty-picker > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.difficulty-picker label {
+  position: relative;
+  display: block;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.difficulty-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.difficulty-picker span {
+  display: grid;
+  gap: 0.1rem;
+  min-height: 64px;
+  border: 1px solid #cfd6e3;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0.65rem;
+}
+
+.difficulty-picker strong,
+.difficulty-picker small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.difficulty-picker strong {
+  color: #111827;
+  font-size: 0.95rem;
+}
+
+.difficulty-picker small {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.difficulty-picker input:checked + span {
+  border-color: #174ea6;
+  background: #eef5ff;
+  box-shadow: 0 0 0 3px rgb(23 78 166 / 0.11);
+}
+
+.difficulty-picker input:focus-visible + span {
+  outline: 3px solid rgb(31 122 90 / 0.2);
+  outline-offset: 2px;
+}
+
 .cf-meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -345,6 +421,94 @@ h1 {
   color: #4b5563;
 }
 
+.problem-panel {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.problem-panel header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #dde2ea;
+  padding-bottom: 0.75rem;
+}
+
+.problem-panel header span {
+  color: #6b7280;
+  font-size: 0.86rem;
+}
+
+.problem-panel header strong {
+  color: #111827;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.challenge-statement {
+  min-width: 0;
+  overflow-x: auto;
+  color: #18202f;
+}
+
+.challenge-statement :where(.header) {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.challenge-statement :where(.title) {
+  color: #111827;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.challenge-statement :where(.time-limit, .memory-limit, .input-file, .output-file) {
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.challenge-statement :where(.section-title) {
+  margin-top: 1.25rem;
+  color: #111827;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.challenge-statement :where(p) {
+  margin: 0.75rem 0;
+}
+
+.challenge-statement :where(pre) {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: #f3f5f8;
+  padding: 0.85rem;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.9rem;
+}
+
+.challenge-statement :where(table) {
+  width: max-content;
+  max-width: 100%;
+  border-collapse: collapse;
+}
+
+.challenge-statement :where(td, th) {
+  border: 1px solid #dde2ea;
+  padding: 0.35rem 0.5rem;
+}
+
+.challenge-statement :where(img) {
+  max-width: 100%;
+  height: auto;
+}
+
 @media (max-width: 640px) {
   .site-header {
     align-items: flex-start;
@@ -359,5 +523,13 @@ h1 {
   .cf-workflow,
   .cf-meta {
     grid-template-columns: 1fr;
+  }
+
+  .difficulty-picker > div {
+    grid-template-columns: 1fr;
+  }
+
+  .problem-panel header {
+    display: grid;
   }
 }
