@@ -31,8 +31,6 @@ func GetChallenge(
 		return
 	}
 
-	submissions, err := cf.GetRecentSubmissions(r.Context(), -1, user.Codeforces)
-
 	challengeType, ok := cfjson.DecodeChallengeRequest(w, r)
 	if !ok {
 		return
@@ -59,7 +57,7 @@ func GetChallenge(
 
 	// randomly choose problem of said rating
 
-	problem, err := chooseRandomProblem(r.Context(), dbs, submissions, chosenDifficulty)
+	problem, err := chooseRandomProblem(r.Context(), dbs, user.Codeforces, chosenDifficulty)
 
 	if err != nil {
 		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "something weird happened!"})
@@ -93,7 +91,6 @@ func GetChallenge(
 	challenge.ChallengeText = challengeText
 
 	cfjson.WriteJSON(w, http.StatusOK, challenge)
-	return
 }
 
 func UpdateChallenge(
@@ -107,11 +104,43 @@ func UpdateChallenge(
 		return
 	}
 
-	_, err := auth.UserFromRequest(r)
+	user, err := auth.UserFromRequest(r)
 	if err != nil {
 		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "authentication required"})
 		return
 	}
+
+	id, b := cfjson.DecodeChallengeUpdate(w, r)
+	if !b {
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "You did not provide challenge data"})
+		return
+	}
+
+	// obfuscate challenge data & user data
+	challenge, exists, err := auth.ChallengeByID(r.Context(), id)
+	if !exists || challenge.UserID != user.ID {
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "Invalid challenge data"})
+		return
+	}
+
+	// check if user solved challenge
+	submissions, err := cf.GetRecentSubmissions(r.Context(), 5, user.Codeforces)
+
+	flag := false
+	for _, submission := range submissions {
+		if submission.Problem.ID == challenge.ProblemID && submission.Verdict == "OK" {
+			flag = true
+		}
+	}
+
+	if !flag {
+		cfjson.WriteJSON(w, http.StatusOK, cfjson.ErrorResponse{Error: "You have not solved the challenge!"})
+		return
+	}
+
+	cfjson.WriteJSON(w, http.StatusOK, messageResponse{Message: "congrats!"})
+
+	// TODO: update db stuff...
 }
 
 func chooseRandomRating(meanRating int) int {
@@ -134,7 +163,7 @@ func chooseRandomRating(meanRating int) int {
 	return chosenRating
 }
 
-func chooseRandomProblem(ctx context.Context, dbs *sql.DB, submissions []cf.CodeforcesSubmission, rating int) (string, error) {
+func chooseRandomProblem(ctx context.Context, dbs *sql.DB, codeforcesUsername string, rating int) (string, error) {
 	problems, err := ProblemsByRating(ctx, dbs, rating)
 
 	if err != nil {
@@ -146,6 +175,11 @@ func chooseRandomProblem(ctx context.Context, dbs *sql.DB, submissions []cf.Code
 	}
 
 	solvedProblems := []string{}
+
+	submissions, err := cf.GetRecentSubmissions(ctx, -1, codeforcesUsername)
+	if err != nil {
+		return "", err
+	}
 
 	for _, submission := range submissions {
 		solvedProblems = append(solvedProblems, submission.Problem.ID)

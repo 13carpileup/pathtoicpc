@@ -27,6 +27,10 @@ type challengeRequest struct {
 	ChallengeType string `json:"challenge_type"` // ENUM: EASY, MEDIUM, or HARD
 }
 
+type challengeUpdate struct {
+	ChallengeID int64 `json:"challenge_id"`
+}
+
 func WriteJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -86,4 +90,24 @@ func DecodeChallengeRequest(w http.ResponseWriter, r *http.Request) (string, boo
 	}
 
 	return challengeType, true
+}
+
+func DecodeChallengeUpdate(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxIntegrationJSONBodySize)
+
+	var req challengeUpdate
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&req); err != nil {
+		WriteJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid JSON request"})
+		return 0, false
+	}
+
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		WriteJSON(w, http.StatusBadRequest, ErrorResponse{Error: "request body must contain one JSON object"})
+		return 0, false
+	}
+
+	return req.ChallengeID, true
 }

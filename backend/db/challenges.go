@@ -25,7 +25,7 @@ func (s *AuthService) InsertChallenge(ctx context.Context, challenge Challenge) 
 	result, err := s.db.ExecContext(
 		ctx,
 		`INSERT INTO challenges (user_id, problem_id, solved, creation_time, expires_at)
-		VALUES (?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?)`,
 		challenge.UserID, challenge.ProblemID, false, challenge.CreationTime, challenge.ExpiryTime,
 	)
 

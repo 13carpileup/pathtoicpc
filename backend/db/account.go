@@ -284,7 +284,7 @@ func (s *AuthService) UserFromRequest(r *http.Request) (userRecord, error) {
 	var user userRecord
 	err = s.db.QueryRowContext(
 		r.Context(),
-		`SELECT users.id, users.email, users.username, users.password_hash, users.created_at, users.linked_cf, users.cf_account, users.rating_estimate
+		`SELECT users.id, users.email, users.username, users.password_hash, users.created_at, users.linked_cf, COALESCE(users.cf_account, ''), COALESCE(users.rating_estimate, 0)
 		FROM user_sessions
 		INNER JOIN users ON users.id = user_sessions.user_id
 		WHERE user_sessions.token_hash = ? AND user_sessions.expires_at > ?

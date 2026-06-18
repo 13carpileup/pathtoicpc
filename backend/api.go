@@ -63,11 +63,11 @@ func NewHandler(dbs *sql.DB) http.Handler {
 	})
 
 	// actual challenge endpoints
-	mux.HandleFunc("GET /api/chal", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/chal", func(w http.ResponseWriter, r *http.Request) {
 		GetChallenge(dbs, *auth, w, r)
 	})
 	mux.HandleFunc("POST /api/chal-update", func(w http.ResponseWriter, r *http.Request) {
-		GetChallenge(dbs, *auth, w, r)
+		UpdateChallenge(dbs, *auth, w, r)
 	})
 
 	return withCORS(mux)
