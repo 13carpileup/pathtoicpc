@@ -7,12 +7,13 @@ import (
 )
 
 type Challenge struct {
-	ChallengeID  int64
-	UserID       int64
-	ProblemID    string
-	Solved       bool
-	CreationTime time.Time
-	ExpiryTime   time.Time
+	ChallengeID   int64     `json:"challenge_id"`
+	UserID        int64     `json:"user_id"`
+	ProblemID     string    `json:"problem_id"`
+	Solved        bool      `json:"solved"`
+	CreationTime  time.Time `json:"creation_time"`
+	ExpiryTime    time.Time `json:"expiry_time"`
+	ChallengeText string    `json:"challenge_text"`
 }
 
 // creates challenge in db and returns its id to you for safe keeping n shi

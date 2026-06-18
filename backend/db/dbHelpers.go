@@ -26,6 +26,7 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			linked_cf BOOLEAN NOT NULL DEFAULT FALSE,
 			cf_account VARCHAR(255),
+			rating_estimate INT,
 
 			PRIMARY KEY (id),
 			UNIQUE KEY users_email_unique (email),
@@ -89,6 +90,13 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 			solved BOOLEAN NOT NULL,
 			creation_time TIMESTAMP NOT NULL,
 			expires_at TIMESTAMP NOT NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
+
+		{query: `CREATE TABLE IF NOT EXISTS rating_updates (
+			id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			user_id BIGINT NOT NULL,
+			timestamp TIMESTAMP NOT NULL,
+			rating_estimate int NOT NULL
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
 	}
 

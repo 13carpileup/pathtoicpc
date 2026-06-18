@@ -23,6 +23,10 @@ type integrationRequest struct {
 	CodeforcesUsername string `json:"codeforces_username"`
 }
 
+type challengeRequest struct {
+	ChallengeType string `json:"challenge_type"` // ENUM: EASY, MEDIUM, or HARD
+}
+
 func WriteJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -32,7 +36,7 @@ func WriteJSON(w http.ResponseWriter, status int, payload any) {
 	}
 }
 
-func decodeIntegrationRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
+func DecodeIntegrationRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxIntegrationJSONBodySize)
 
 	var req integrationRequest
@@ -56,4 +60,30 @@ func decodeIntegrationRequest(w http.ResponseWriter, r *http.Request) (string, b
 	}
 
 	return codeforcesUsername, true
+}
+
+func DecodeChallengeRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxIntegrationJSONBodySize)
+
+	var req challengeRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&req); err != nil {
+		WriteJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid JSON request"})
+		return "", false
+	}
+
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		WriteJSON(w, http.StatusBadRequest, ErrorResponse{Error: "request body must contain one JSON object"})
+		return "", false
+	}
+
+	challengeType := strings.TrimSpace(req.ChallengeType)
+	if challengeType != "HARD" && challengeType != "MEDIUM" && challengeType != "EASY" {
+		WriteJSON(w, http.StatusUnprocessableEntity, ErrorResponse{Error: "invalid challenge type provided"})
+		return "", false
+	}
+
+	return challengeType, true
 }
