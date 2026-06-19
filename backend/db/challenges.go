@@ -16,6 +16,14 @@ type Challenge struct {
 	ChallengeText string    `json:"challenge_text"`
 }
 
+type ProblemStatus struct {
+	ProblemID    string
+	UserID       int64
+	Solved       bool
+	Tracked      bool
+	SecondsTaken int64
+}
+
 // creates challenge in db and returns its id to you for safe keeping n shi
 func (s *AuthService) InsertChallenge(ctx context.Context, challenge Challenge) (int64, error) {
 	if s == nil || s.db == nil {
@@ -117,4 +125,58 @@ func (s *AuthService) ChallengesByX(ctx context.Context, query string, args []an
 	}
 
 	return challenges, nil
+}
+
+func (s *AuthService) ProblemStatusByUser(ctx context.Context, userID int64) ([]ProblemStatus, error) {
+	if s == nil {
+		return nil, errors.New("mysql database is not configured")
+	}
+
+	challenges, err := s.ProblemStatusByX(ctx,
+		`SELECT problem_id, user_id, solved, tracked, seconds_taken
+		FROM problem_status
+		WHERE user_id = ?`,
+		[]any{userID},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return challenges, nil
+}
+
+func (s *AuthService) ProblemStatusByX(ctx context.Context, query string, args []any) ([]ProblemStatus, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("mysql database is not configured")
+	}
+
+	rows, err := s.db.QueryContext(
+		ctx,
+		query,
+		args...,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var problems []ProblemStatus
+	for rows.Next() {
+		var problem ProblemStatus
+
+		if err := rows.Scan(&problem.ProblemID, &problem.UserID, &problem.Solved, &problem.Tracked, &problem.SecondsTaken); err != nil {
+			return nil, err
+		}
+
+		problems = append(problems, problem)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return problems, nil
 }
