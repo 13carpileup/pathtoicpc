@@ -90,6 +90,21 @@ func GetChallenge(
 
 	challenge.ChallengeText = challengeText
 
+	problemStatus := db.ProblemStatus{
+		ProblemID:    problem,
+		UserID:       user.ID,
+		Solved:       false,
+		SecondsTaken: -1,
+		Tracked:      true,
+	}
+
+	err = auth.InsertOrUpdateProblemStatus(r.Context(), problemStatus)
+
+	if err != nil {
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "failed to update database"})
+		return
+	}
+
 	cfjson.WriteJSON(w, http.StatusOK, challenge)
 }
 
@@ -126,10 +141,18 @@ func UpdateChallenge(
 	// check if user solved challenge
 	submissions, err := cf.GetRecentSubmissions(r.Context(), 5, user.Codeforces)
 
+	if err != nil || len(submissions) == 0 {
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "You have no submissions"})
+		return
+	}
+
+	trackedSubmission := submissions[0]
+
 	flag := false
 	for _, submission := range submissions {
 		if submission.Problem.ID == challenge.ProblemID && submission.Verdict == "OK" {
 			flag = true
+			trackedSubmission = submission
 		}
 	}
 
@@ -138,9 +161,29 @@ func UpdateChallenge(
 		return
 	}
 
-	cfjson.WriteJSON(w, http.StatusOK, messageResponse{Message: "congrats!"})
+	submissionTime := time.Unix(trackedSubmission.CreationTime, 0).UTC()
 
-	// TODO: update db stuff...
+	if submissionTime.After(challenge.ExpiryTime) {
+		cfjson.WriteJSON(w, http.StatusOK, cfjson.ErrorResponse{Error: "Good job, but you were a little too slow!"})
+		return
+	}
+
+	problemStatus := db.ProblemStatus{
+		ProblemID:    challenge.ProblemID,
+		UserID:       user.ID,
+		Solved:       true,
+		SecondsTaken: int64(submissionTime.Sub(challenge.CreationTime).Seconds()),
+		Tracked:      true,
+	}
+
+	err = auth.InsertOrUpdateProblemStatus(r.Context(), problemStatus)
+
+	if err != nil {
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "congrats, but I failed to update the database lol"})
+		return
+	}
+
+	cfjson.WriteJSON(w, http.StatusOK, messageResponse{Message: "congrats!"})
 }
 
 func chooseRandomRating(meanRating int) int {

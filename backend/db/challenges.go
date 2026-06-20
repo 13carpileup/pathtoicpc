@@ -127,6 +127,25 @@ func (s *AuthService) ChallengesByX(ctx context.Context, query string, args []an
 	return challenges, nil
 }
 
+func (s *AuthService) InsertOrUpdateProblemStatus(ctx context.Context, problemStatus ProblemStatus) error {
+	if s == nil {
+		return errors.New("mysql database is not configured")
+	}
+
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO problem_status (problem_id, user_id, solved, tracked, seconds_taken)
+		VALUES (?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE solved=VALUES(solved), tracked=VALUES(tracked), seconds_taken=VALUES(seconds_taken)`,
+		problemStatus.ProblemID, problemStatus.UserID, problemStatus.Solved, problemStatus.Tracked, problemStatus.SecondsTaken,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *AuthService) ProblemStatusByUser(ctx context.Context, userID int64) ([]ProblemStatus, error) {
 	if s == nil {
 		return nil, errors.New("mysql database is not configured")

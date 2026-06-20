@@ -68,11 +68,13 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
 
 		{query: `CREATE TABLE IF NOT EXISTS problem_status (
-			problem_id VARCHAR(255) NOT NULL PRIMARY KEY,
+			problem_id VARCHAR(255) NOT NULL,
 			user_id BIGINT NOT NULL,
 			solved BOOLEAN NOT NULL,
 			tracked BOOLEAN NOT NULL,
-			seconds_taken BIGINT
+			seconds_taken BIGINT,
+
+			PRIMARY KEY (problem_id, user_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},
 
 		{query: `CREATE TABLE IF NOT EXISTS codeforces_linking (

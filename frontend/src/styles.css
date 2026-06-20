@@ -280,6 +280,21 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.cf-linking {
+  margin-top: 1rem;
+}
+
+.cf-link-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.cf-link-form label {
+  min-width: 0;
+}
+
 .cf-workflow {
   display: grid;
   grid-template-columns: minmax(260px, 0.85fr) minmax(280px, 1.15fr);
@@ -521,7 +536,8 @@ h1 {
   }
 
   .cf-workflow,
-  .cf-meta {
+  .cf-meta,
+  .cf-link-form {
     grid-template-columns: 1fr;
   }
 
