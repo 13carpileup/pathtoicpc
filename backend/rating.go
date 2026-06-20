@@ -3,11 +3,17 @@ package backend
 import (
 	"database/sql"
 	"maps"
+	"math"
 	"net/http"
 	"pathtoicpc/backend/db"
 	cfjson "pathtoicpc/backend/json"
 	"time"
 )
+
+type RatingEstimate struct {
+	RatingEstimate int `json:"rating_estimate"`
+	Uncertainty    int `json:"uncertainty"`
+}
 
 func EstimateRating(
 	dbs *sql.DB,
@@ -32,8 +38,20 @@ func EstimateRating(
 		return
 	}
 
+	if len(problemList) == 0 {
+		cfjson.WriteJSON(w, http.StatusUnauthorized, RatingEstimate{RatingEstimate: 1000, Uncertainty: 1000})
+		return
+	}
+
 	statusByRating := getStatusByRating(problemList, time.Now().Add(-time.Hour*24*30))
-	ratio := getRatio(statusByRating)
+	_ = getRatio(statusByRating)
+
+	ratingEstimate, uncertainty := getRating(ratio)
+
+	cfjson.WriteJSON(w, http.StatusUnauthorized, RatingEstimate{RatingEstimate: ratingEstimate, Uncertainty: uncertainty})
+}
+
+func getRating(ratios map[int]float64) (int, int) {
 
 }
 
@@ -91,4 +109,8 @@ func getRatio(problemMap map[int][]db.ProblemStatus) map[int]float64 {
 	}
 
 	return ratio
+}
+
+func NormalCDF(left float64, right float64, std float64, mean float64) float64 {
+	return 0.5*math.Erf(1/math.Sqrt(2)*(right-mean)/std) - 0.5*math.Erf(1/math.Sqrt(2)*(left-mean)/std)
 }

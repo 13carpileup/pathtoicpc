@@ -26,16 +26,6 @@ func InitializeSchema(ctx context.Context, dbs *sql.DB) error {
 }
 
 func NewHandler(dbs *sql.DB) http.Handler {
-	problem, err := cf.GetProblemText(context.Background(), "2236G")
-
-	log.Printf("trying prob 22 wtver")
-
-	if err != nil {
-		log.Printf("ruh roh")
-	} else {
-		log.Printf("%s", problem)
-	}
-
 	auth := db.NewAuthService(dbs)
 
 	mux := http.NewServeMux()
@@ -69,6 +59,8 @@ func NewHandler(dbs *sql.DB) http.Handler {
 	mux.HandleFunc("POST /api/chal-update", func(w http.ResponseWriter, r *http.Request) {
 		UpdateChallenge(dbs, *auth, w, r)
 	})
+
+	log.Printf("%f", NormalCDF(0, 1, 1, 0))
 
 	return withCORS(mux)
 }
