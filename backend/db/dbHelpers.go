@@ -18,6 +18,7 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 	}
 
 	statements := []statement{
+		{query: `DROP TABLE problem_status`},
 		{query: `CREATE TABLE IF NOT EXISTS users (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			email VARCHAR(255) NOT NULL,
@@ -73,6 +74,7 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 			solved BOOLEAN NOT NULL,
 			tracked BOOLEAN NOT NULL,
 			seconds_taken BIGINT,
+			time_solved TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
 			PRIMARY KEY (problem_id, user_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`},

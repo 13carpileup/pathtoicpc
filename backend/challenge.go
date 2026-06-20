@@ -174,6 +174,7 @@ func UpdateChallenge(
 		Solved:       true,
 		SecondsTaken: int64(submissionTime.Sub(challenge.CreationTime).Seconds()),
 		Tracked:      true,
+		SolvedAt:     submissionTime,
 	}
 
 	err = auth.InsertOrUpdateProblemStatus(r.Context(), problemStatus)

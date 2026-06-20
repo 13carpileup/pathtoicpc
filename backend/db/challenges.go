@@ -22,6 +22,8 @@ type ProblemStatus struct {
 	Solved       bool
 	Tracked      bool
 	SecondsTaken int64
+	SolvedAt     time.Time
+	Rating       int64
 }
 
 // creates challenge in db and returns its id to you for safe keeping n shi
@@ -133,10 +135,10 @@ func (s *AuthService) InsertOrUpdateProblemStatus(ctx context.Context, problemSt
 	}
 
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO problem_status (problem_id, user_id, solved, tracked, seconds_taken)
-		VALUES (?, ?, ?, ?, ?)
+		`INSERT INTO problem_status (problem_id, user_id, solved, tracked, seconds_taken, time_solved)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE solved=VALUES(solved), tracked=VALUES(tracked), seconds_taken=VALUES(seconds_taken)`,
-		problemStatus.ProblemID, problemStatus.UserID, problemStatus.Solved, problemStatus.Tracked, problemStatus.SecondsTaken,
+		problemStatus.ProblemID, problemStatus.UserID, problemStatus.Solved, problemStatus.Tracked, problemStatus.SecondsTaken, problemStatus.SolvedAt,
 	)
 
 	if err != nil {
@@ -152,9 +154,10 @@ func (s *AuthService) ProblemStatusByUser(ctx context.Context, userID int64) ([]
 	}
 
 	challenges, err := s.ProblemStatusByX(ctx,
-		`SELECT problem_id, user_id, solved, tracked, seconds_taken
+		`SELECT problem_status.problem_id, problem_status.user_id, problem_status.solved, problem_status.tracked, problem_status.seconds_taken, problems.rating
 		FROM problem_status
-		WHERE user_id = ?`,
+		INNER JOIN problems ON problem_status.problem_id = problems.id
+		WHERE problem_status.user_id = ?`,
 		[]any{userID},
 	)
 
@@ -186,7 +189,7 @@ func (s *AuthService) ProblemStatusByX(ctx context.Context, query string, args [
 	for rows.Next() {
 		var problem ProblemStatus
 
-		if err := rows.Scan(&problem.ProblemID, &problem.UserID, &problem.Solved, &problem.Tracked, &problem.SecondsTaken); err != nil {
+		if err := rows.Scan(&problem.ProblemID, &problem.UserID, &problem.Solved, &problem.Tracked, &problem.SecondsTaken, &problem.Rating); err != nil {
 			return nil, err
 		}
 
