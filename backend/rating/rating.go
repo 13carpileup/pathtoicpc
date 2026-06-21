@@ -52,47 +52,72 @@ func EstimateRating(
 }
 
 func getRating(statusMap map[int][]db.ProblemStatus) (int, int) {
-	independentProbability := make(map[int]float64)
-	precision := 10
-
-	for i := range 23 {
-		problemRating := 800 + i*100
-		independentProbability[problemRating] = 0
-
-		for j := range 23 * precision {
-			userRating := 800 + j*100/precision
-
-			independentProbability[problemRating] += ProbOfUserRating(userRating, precision) * ProbOfSolvingGivenRating(userRating, problemRating)
-		}
-	}
-
 	probOfUserRating := make(map[int]float64)
 
-	for j := range 23 * precision {
-		userRating := 800 + j*100/precision
+	for j := range 23 {
+		userRating := 800 + j*100
 
-		probOfUserRating[userRating] = ProbOfUserRating(userRating, precision)
+		probOfUserRating[userRating] = ProbOfUserRating(userRating)
 	}
 
-	for rating := range maps.Keys(statusMap) {
+	for rating := range statusMap {
+		independentProbability := make(map[int]float64)
+
 		for _, problemStatus := range statusMap[rating] {
-			for j := range 23 * precision {
-				userRating := 800 + j*100/precision
+			correction := 0.
+
+			for i := range 23 {
+				problemRating := 800 + i*100
+
+				correction += probOfUserRating[problemRating]
+			}
+
+			for i := range 23 {
+				problemRating := 800 + i*100
+
+				probOfUserRating[problemRating] /= correction
+			}
+
+			for i := range 23 {
+				problemRating := 800 + i*100
+				independentProbability[problemRating] = 0
+
+				for j := range 23 {
+					userRating := 800 + j*100
+
+					independentProbability[problemRating] += probOfUserRating[userRating] * ProbOfSolvingGivenRating(userRating, problemRating)
+				}
+
+			}
+
+			fmt.Printf("correctino: %f\n", correction)
+
+			for j := range 23 {
+				userRating := 800 + j*100
 				probSolved := ProbOfSolvingGivenRating(userRating, rating)
+				denom := independentProbability[rating]
 
 				if !problemStatus.Solved {
 					probSolved = 1 - probSolved
+					denom = 1 - denom
+					fmt.Printf("prob rating %d at user rating %d has probNotSolved %f\n", rating, userRating, probSolved)
+
+				} else {
+					fmt.Printf("prob rating %d at user rating %d has probSolved %f\n", rating, userRating, probSolved)
+
 				}
 
 				// bayes
-				probOfUserRating[userRating] = probSolved * probOfUserRating[userRating] / independentProbability[rating]
+				probOfUserRating[userRating] = probSolved * probOfUserRating[userRating] / denom
+
+				fmt.Printf("rating %d updated to %f\n", userRating, probOfUserRating[userRating])
 			}
 		}
 	}
 
 	var expectedRating float64 = 0
 	for rating := range probOfUserRating {
-		fmt.Printf("RATING %d has prob %f\n", rating, probOfUserRating[rating])
+		//fmt.Printf("RATING %d has prob %f, independent prob of %f, ur prob of %f\n", rating, probOfUserRating[rating], independentProbability[rating], ProbOfUserRating(rating))
 		expectedRating += float64(rating) * probOfUserRating[rating]
 	}
 
@@ -123,7 +148,7 @@ func getRatio(problemMap map[int][]db.ProblemStatus) map[int]float64 {
 	totalCount := make(map[int]int)
 	totalSolved := make(map[int]int)
 
-	for rating := range maps.Keys(problemMap) {
+	for rating := range problemMap {
 		for _, problem := range problemMap[rating] {
 			count, exists := totalCount[rating]
 
@@ -156,11 +181,11 @@ func getRatio(problemMap map[int][]db.ProblemStatus) map[int]float64 {
 }
 
 // returns the probability of any given user having a rating between userRating and userRating + precision
-func ProbOfUserRating(userRating int, precision int) float64 {
+func ProbOfUserRating(userRating int) float64 {
 	var std float64 = 350
 	var mean float64 = 1200
 
-	return NormalCDF(float64(userRating), float64(userRating+precision), std, mean)
+	return NormalCDF(float64(userRating), float64(userRating+100), std, mean)
 }
 
 // returns the probability that a user with the given rating can correctly solve the problem with the given rating

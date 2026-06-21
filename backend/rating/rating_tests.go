@@ -10,10 +10,16 @@ import (
 func TestProblemEstimate() {
 	// rating : [total problems, successful problems]
 	problems := map[int][]int{
-		1300: {10, 9},
+		1300: {10, 6},
+		1900: {3, 3},
+		2100: {2, 2},
 	}
 
 	problemList := generateProblemList(problems)
+
+	for _, problem := range problemList {
+		fmt.Printf("problem status: %b\n", problem.Solved)
+	}
 
 	statusByRating := getStatusByRating(problemList, time.Now().Add(-time.Hour*24*30))
 
@@ -29,7 +35,7 @@ func generateProblemList(ratingsMap map[int][]int) []db.ProblemStatus {
 		for i := range ratingsMap[rating][0] {
 			success := true
 
-			if i < ratingsMap[rating][0] {
+			if i >= ratingsMap[rating][1] {
 				success = false
 			}
 
