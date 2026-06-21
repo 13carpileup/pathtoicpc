@@ -3,13 +3,13 @@ package backend
 import (
 	"context"
 	"database/sql"
-	"log"
 	"net/http"
 	"time"
 
 	cf "pathtoicpc/backend/codeforces"
 	"pathtoicpc/backend/db"
 	cfjson "pathtoicpc/backend/json"
+	"pathtoicpc/backend/rating"
 )
 
 type healthResponse struct {
@@ -26,6 +26,8 @@ func InitializeSchema(ctx context.Context, dbs *sql.DB) error {
 }
 
 func NewHandler(dbs *sql.DB) http.Handler {
+	rating.TestProblemEstimate()
+
 	auth := db.NewAuthService(dbs)
 
 	mux := http.NewServeMux()
@@ -59,8 +61,6 @@ func NewHandler(dbs *sql.DB) http.Handler {
 	mux.HandleFunc("POST /api/chal-update", func(w http.ResponseWriter, r *http.Request) {
 		UpdateChallenge(dbs, *auth, w, r)
 	})
-
-	log.Printf("%f", NormalCDF(0, 1, 1, 0))
 
 	return withCORS(mux)
 }

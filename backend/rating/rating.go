@@ -1,7 +1,8 @@
-package backend
+package rating
 
 import (
 	"database/sql"
+	"fmt"
 	"maps"
 	"math"
 	"net/http"
@@ -44,15 +45,58 @@ func EstimateRating(
 	}
 
 	statusByRating := getStatusByRating(problemList, time.Now().Add(-time.Hour*24*30))
-	_ = getRatio(statusByRating)
 
-	ratingEstimate, uncertainty := getRating(ratio)
+	ratingEstimate, uncertainty := getRating(statusByRating)
 
 	cfjson.WriteJSON(w, http.StatusUnauthorized, RatingEstimate{RatingEstimate: ratingEstimate, Uncertainty: uncertainty})
 }
 
-func getRating(ratios map[int]float64) (int, int) {
+func getRating(statusMap map[int][]db.ProblemStatus) (int, int) {
+	independentProbability := make(map[int]float64)
+	precision := 10
 
+	for i := range 23 {
+		problemRating := 800 + i*100
+		independentProbability[problemRating] = 0
+
+		for j := range 23 * precision {
+			userRating := 800 + j*100/precision
+
+			independentProbability[problemRating] += ProbOfUserRating(userRating, precision) * ProbOfSolvingGivenRating(userRating, problemRating)
+		}
+	}
+
+	probOfUserRating := make(map[int]float64)
+
+	for j := range 23 * precision {
+		userRating := 800 + j*100/precision
+
+		probOfUserRating[userRating] = ProbOfUserRating(userRating, precision)
+	}
+
+	for rating := range maps.Keys(statusMap) {
+		for _, problemStatus := range statusMap[rating] {
+			for j := range 23 * precision {
+				userRating := 800 + j*100/precision
+				probSolved := ProbOfSolvingGivenRating(userRating, rating)
+
+				if !problemStatus.Solved {
+					probSolved = 1 - probSolved
+				}
+
+				// bayes
+				probOfUserRating[userRating] = probSolved * probOfUserRating[userRating] / independentProbability[rating]
+			}
+		}
+	}
+
+	var expectedRating float64 = 0
+	for rating := range probOfUserRating {
+		fmt.Printf("RATING %d has prob %f\n", rating, probOfUserRating[rating])
+		expectedRating += float64(rating) * probOfUserRating[rating]
+	}
+
+	return int(expectedRating), 500
 }
 
 func getStatusByRating(problemList []db.ProblemStatus, olderThan time.Time) map[int][]db.ProblemStatus {
@@ -109,6 +153,24 @@ func getRatio(problemMap map[int][]db.ProblemStatus) map[int]float64 {
 	}
 
 	return ratio
+}
+
+// returns the probability of any given user having a rating between userRating and userRating + precision
+func ProbOfUserRating(userRating int, precision int) float64 {
+	var std float64 = 350
+	var mean float64 = 1200
+
+	return NormalCDF(float64(userRating), float64(userRating+precision), std, mean)
+}
+
+// returns the probability that a user with the given rating can correctly solve the problem with the given rating
+func ProbOfSolvingGivenRating(userRating int, problemRating int) float64 {
+	delta := float64(userRating - problemRating)
+
+	L := 1.00
+	K := 0.01
+
+	return L / (1 + math.Exp(-K*delta))
 }
 
 func NormalCDF(left float64, right float64, std float64, mean float64) float64 {

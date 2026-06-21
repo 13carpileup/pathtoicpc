@@ -1,0 +1,49 @@
+package rating
+
+import (
+	"fmt"
+	"maps"
+	"pathtoicpc/backend/db"
+	"time"
+)
+
+func TestProblemEstimate() {
+	// rating : [total problems, successful problems]
+	problems := map[int][]int{
+		1300: {10, 9},
+	}
+
+	problemList := generateProblemList(problems)
+
+	statusByRating := getStatusByRating(problemList, time.Now().Add(-time.Hour*24*30))
+
+	ratingEstimate, uncertainty := getRating(statusByRating)
+
+	fmt.Printf("\nRATING TEST: %d, %d\n", ratingEstimate, uncertainty)
+}
+
+func generateProblemList(ratingsMap map[int][]int) []db.ProblemStatus {
+	var currentProblemList []db.ProblemStatus
+
+	for rating := range maps.Keys(ratingsMap) {
+		for i := range ratingsMap[rating][0] {
+			success := true
+
+			if i < ratingsMap[rating][0] {
+				success = false
+			}
+
+			currentProblemList = append(currentProblemList, db.ProblemStatus{
+				ProblemID:    "x",
+				UserID:       1,
+				Solved:       success,
+				Tracked:      true,
+				SecondsTaken: 1,
+				SolvedAt:     time.Now(),
+				Rating:       int64(rating),
+			})
+		}
+	}
+
+	return currentProblemList
+}
