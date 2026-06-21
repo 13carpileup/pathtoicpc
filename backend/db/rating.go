@@ -51,7 +51,7 @@ func (s *AuthService) GetRatingEstimatesByUser(ctx context.Context, userID int64
 
 	rows, err := s.db.QueryContext(
 		ctx,
-		"SELECT (user_id, timestamp, rating_estimate) FROM rating_updates WHERE user_id = ?",
+		"SELECT user_id, timestamp, rating_estimate FROM rating_updates WHERE user_id = ?",
 		userID,
 	)
 

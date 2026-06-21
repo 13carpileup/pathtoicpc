@@ -43,7 +43,7 @@ func GetRatingHistory(
 		return
 	}
 
-	cfjson.WriteJSON(w, http.StatusUnauthorized, RatingHistory{UpdateList: RatingList})
+	cfjson.WriteJSON(w, http.StatusOK, RatingHistory{UpdateList: RatingList})
 }
 
 func EstimateRating(
