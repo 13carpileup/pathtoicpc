@@ -63,6 +63,9 @@ func NewHandler(dbs *sql.DB) http.Handler {
 	mux.HandleFunc("GET /api/rating_estimate", func(w http.ResponseWriter, r *http.Request) {
 		rating.EstimateRating(dbs, *auth, w, r)
 	})
+	mux.HandleFunc("GET /api/get_rating_history", func(w http.ResponseWriter, r *http.Request) {
+		rating.GetRatingHistory(dbs, *auth, w, r)
+	})
 
 	return withCORS(mux)
 }

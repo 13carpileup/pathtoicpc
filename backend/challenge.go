@@ -96,6 +96,7 @@ func GetChallenge(
 		Solved:       false,
 		SecondsTaken: -1,
 		Tracked:      true,
+		SolvedAt:     time.Now().Add(-time.Hour * 100000),
 	}
 
 	err = auth.InsertOrUpdateProblemStatus(r.Context(), problemStatus)

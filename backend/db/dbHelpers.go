@@ -18,7 +18,6 @@ func (s *AuthService) InitializeSchema(ctx context.Context) error {
 	}
 
 	statements := []statement{
-		{query: `DROP TABLE problem_status`},
 		{query: `CREATE TABLE IF NOT EXISTS users (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			email VARCHAR(255) NOT NULL,

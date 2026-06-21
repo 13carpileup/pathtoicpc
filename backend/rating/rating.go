@@ -16,6 +16,36 @@ type RatingEstimate struct {
 	Uncertainty    int `json:"uncertainty"`
 }
 
+type RatingHistory struct {
+	UpdateList []db.RatingUpdate `json:"rating_update_list"`
+}
+
+func GetRatingHistory(
+	dbs *sql.DB,
+	auth db.AuthService,
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if dbs == nil {
+		cfjson.WriteJSON(w, http.StatusServiceUnavailable, cfjson.ErrorResponse{Error: "mysql database is not configured"})
+		return
+	}
+
+	user, err := auth.UserFromRequest(r)
+	if err != nil {
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "authentication required"})
+		return
+	}
+
+	RatingList, err := auth.GetRatingEstimatesByUser(r.Context(), user.ID)
+	if err != nil {
+		cfjson.WriteJSON(w, http.StatusUnauthorized, cfjson.ErrorResponse{Error: "failed to get rating history"})
+		return
+	}
+
+	cfjson.WriteJSON(w, http.StatusUnauthorized, RatingHistory{UpdateList: RatingList})
+}
+
 func EstimateRating(
 	dbs *sql.DB,
 	auth db.AuthService,
