@@ -40,7 +40,7 @@ func EstimateRating(
 	}
 
 	if len(problemList) == 0 {
-		cfjson.WriteJSON(w, http.StatusUnauthorized, RatingEstimate{RatingEstimate: 1000, Uncertainty: 1000})
+		cfjson.WriteJSON(w, http.StatusOK, RatingEstimate{RatingEstimate: 1000, Uncertainty: 1000})
 		return
 	}
 
@@ -48,7 +48,9 @@ func EstimateRating(
 
 	ratingEstimate, uncertainty := getRating(statusByRating)
 
-	cfjson.WriteJSON(w, http.StatusUnauthorized, RatingEstimate{RatingEstimate: ratingEstimate, Uncertainty: uncertainty})
+	err = auth.UpdateUserRating(r.Context(), user.ID, ratingEstimate)
+
+	cfjson.WriteJSON(w, http.StatusOK, RatingEstimate{RatingEstimate: ratingEstimate, Uncertainty: uncertainty})
 }
 
 func getRating(statusMap map[int][]db.ProblemStatus) (int, int) {

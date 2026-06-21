@@ -154,7 +154,7 @@ func (s *AuthService) ProblemStatusByUser(ctx context.Context, userID int64) ([]
 	}
 
 	challenges, err := s.ProblemStatusByX(ctx,
-		`SELECT problem_status.problem_id, problem_status.user_id, problem_status.solved, problem_status.tracked, problem_status.seconds_taken, problems.rating
+		`SELECT problem_status.problem_id, problem_status.user_id, problem_status.solved, problem_status.tracked, problem_status.seconds_taken, problem_status.time_solved, problems.rating
 		FROM problem_status
 		INNER JOIN problems ON problem_status.problem_id = problems.id
 		WHERE problem_status.user_id = ?`,
@@ -189,7 +189,7 @@ func (s *AuthService) ProblemStatusByX(ctx context.Context, query string, args [
 	for rows.Next() {
 		var problem ProblemStatus
 
-		if err := rows.Scan(&problem.ProblemID, &problem.UserID, &problem.Solved, &problem.Tracked, &problem.SecondsTaken, &problem.Rating); err != nil {
+		if err := rows.Scan(&problem.ProblemID, &problem.UserID, &problem.Solved, &problem.Tracked, &problem.SecondsTaken, &problem.SolvedAt, &problem.Rating); err != nil {
 			return nil, err
 		}
 

@@ -261,6 +261,16 @@ func (s *AuthService) getUserByID(ctx context.Context, userID int64) (userRecord
 	return user, err
 }
 
+func (s *AuthService) UpdateUserRating(ctx context.Context, userID int64, newRating int) error {
+	_, err := s.db.ExecContext(
+		ctx,
+		`UPDATE users SET rating_estimate = ? where user_id = ?`,
+		newRating, userID,
+	)
+
+	return err
+}
+
 func (s *AuthService) getUserByIdentifier(ctx context.Context, identifier string) (userRecord, error) {
 	var user userRecord
 	err := s.db.QueryRowContext(

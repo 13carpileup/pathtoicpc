@@ -2,7 +2,6 @@ package rating
 
 import (
 	"fmt"
-	"maps"
 	"pathtoicpc/backend/db"
 	"time"
 )
@@ -31,7 +30,7 @@ func TestProblemEstimate() {
 func generateProblemList(ratingsMap map[int][]int) []db.ProblemStatus {
 	var currentProblemList []db.ProblemStatus
 
-	for rating := range maps.Keys(ratingsMap) {
+	for rating := range ratingsMap {
 		for i := range ratingsMap[rating][0] {
 			success := true
 

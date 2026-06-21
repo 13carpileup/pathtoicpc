@@ -26,8 +26,7 @@ func InitializeSchema(ctx context.Context, dbs *sql.DB) error {
 }
 
 func NewHandler(dbs *sql.DB) http.Handler {
-	rating.TestProblemEstimate()
-
+	//rating.TestProblemEstimate()
 	auth := db.NewAuthService(dbs)
 
 	mux := http.NewServeMux()
@@ -58,8 +57,11 @@ func NewHandler(dbs *sql.DB) http.Handler {
 	mux.HandleFunc("POST /api/chal", func(w http.ResponseWriter, r *http.Request) {
 		GetChallenge(dbs, *auth, w, r)
 	})
-	mux.HandleFunc("POST /api/chal-update", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/chal_update", func(w http.ResponseWriter, r *http.Request) {
 		UpdateChallenge(dbs, *auth, w, r)
+	})
+	mux.HandleFunc("GET /api/rating_estimate", func(w http.ResponseWriter, r *http.Request) {
+		rating.EstimateRating(dbs, *auth, w, r)
 	})
 
 	return withCORS(mux)
